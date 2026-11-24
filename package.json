@@ -1,6 +1,6 @@
 {
   "name": "aelvo",
-  "version": "2.4.6",
+  "version": "3.0.0",
   "description": "AELVO — the automated engineering & logic-verification agent. Plan, code, verify and report from any folder, like claude/codex/codebuff.",
   "keywords": [
     "ai",
@@ -12,47 +12,56 @@
   ],
   "license": "MIT",
   "author": "aelvolabs",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/aelvolabs/Aelvo.git"
   },
   "bin": {
-    "Aelvo": "bin/aelvo.js",
-    "aelvo": "bin/aelvo.js"
+    "Aelvo": "dist/cli/entry.js",
+    "aelvo": "dist/cli/entry.js"
+  },
+  "main": "dist/main.js",
+  "exports": {
+    ".": "./dist/main.js",
+    "./contracts": "./dist/shared/contracts.js"
   },
   "scripts": {
-    "postinstall": "node bin/install.js",
-    "start": "node bin/aelvo.js"
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/cli/entry.js",
+    "dev": "node --experimental-strip-types src/cli/entry.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:install": "node --test tests/install/",
+    "verify": "npm run typecheck && npm run build && npm test",
+    "prepublishOnly": "npm run verify"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=24"
   },
   "files": [
-    "bin/",
-    "cli/",
-    "core/",
-    "config/",
-    "auth/",
-    "tools/",
-    "memory/",
-    "cognition/",
-    "repo_intelligence/",
-    "specialists/",
-    "planning/",
-    "runtime_next/",
-    "learning/",
-    "mcp/",
-    "environment/",
-    "experimental_graph/",
+    "dist/",
+    "web/dist/",
     "sandbox_core/src/",
-    "*.py",
-    "*.md",
-    "*.txt",
-    "*.toml",
-    "!**/__pycache__/",
-    "!**/tests/",
-    "!global_anchor.md",
-    "!requirements.txt",
-    "!ruff.toml"
-  ]
+    "sandbox_core/Cargo.toml",
+    "README.md",
+    "LICENSE",
+    "!**/*.map",
+    "!**/*.test.js"
+  ],
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "@google/genai": "^1.30.0",
+    "openai": "^6.9.0",
+    "pino": "^10.1.0",
+    "ws": "^8.18.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
 }

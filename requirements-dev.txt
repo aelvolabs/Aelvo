@@ -1,0 +1,14 @@
+# AELVO — development / test requirements.
+#
+# NOT installed by the npm postinstall (only requirements-cli.txt is). Install
+# into your own environment with:
+#
+#     python -m pip install -r requirements-dev.txt
+#
+# Pinned for the same reason as production pins: reproducible test runs.
+# Tested interpreter: CPython 3.10 – 3.13.
+
+-r requirements-cli.txt
+
+pytest==9.2.0
+pytest-asyncio==1.4.1.post1

@@ -1,97 +1,172 @@
 #!/usr/bin/env node
 /**
- * install.js — postinstall / first-run bootstrap for the Aelvo npm package.
+ * install.js — npm postinstall / repair entry point.
  *
- * Creates a Python virtual environment inside the package (.venv) and
- * installs the CLI requirements from requirements-cli.txt. This is what makes
- * `npm install -g Aelvo` a genuine one-liner: after install, `Aelvo` just
- * works (no manual pip install step).
+ * Responsibilities:
+ *   1. Make bin/* executable on POSIX (npm does not always keep the mode bit).
+ *   2. Find and validate a Python interpreter (never installs Python).
+ *   3. Ensure a verified, persistent virtual environment for this AELVO +
+ *      dependency set, building a replacement only when none is healthy.
  *
- * The venv is created with --system-site-packages off so the package is fully
- * self-contained; the CLI-only requirements keep the install lean (the heavy
- * web/scraping extras are lazy-imported with graceful fallbacks).
+ * Exit codes: 0 = environment ready (or deliberately skipped), 1 = setup
+ * failed. A failed setup is reported loudly — never silently "succeeded".
+ *
+ *   node bin/install.js              # install / repair (postinstall default)
+ *   node bin/install.js --verify     # verify only, exit 1 if unhealthy
+ *   node bin/install.js --cleanup    # prune obsolete runtime environments
  */
+
 "use strict";
 
-const { spawnSync } = require("child_process");
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
+const deps = require("./lib/deps");
+const runtime = require("./lib/runtime");
+const { createUi } = require("./lib/ui");
+const { detectPython, formatVersion } = require("./lib/python");
+
 const PKG_ROOT = path.join(__dirname, "..");
-const REQS = path.join(PKG_ROOT, "requirements-cli.txt");
 
-function log(msg) {
-  process.stdout.write(`[Aelvo] ${msg}\n`);
+function readPackageJson(pkgRoot) {
+  return JSON.parse(fs.readFileSync(path.join(pkgRoot || PKG_ROOT, "package.json"), "utf8"));
 }
 
-function findPython() {
-  const candidates = ["python3", "python", "py"];
-  for (const name of candidates) {
+/** npm can drop the execute bit when unpacking; `aelvo` then fails on zsh. */
+function ensureExecBits(pkgRoot) {
+  if (process.platform === "win32") return;
+  for (const file of ["aelvo.js", "install.js"]) {
     try {
-      const res = spawnSync(name, ["--version"], { stdio: "pipe" });
-      if (res.status === 0) return name;
-    } catch (_err) {
-      /* try next */
+      fs.chmodSync(path.join(pkgRoot || PKG_ROOT, "bin", file), 0o755);
+    } catch (err) {
+      /* best effort */
     }
   }
-  return null;
 }
 
-function main() {
-  // ── Ensure POSIX bin files are executable ──────────────────────────────
-  // npm doesn't always preserve the execute bit from the tarball, which
-  // causes "zsh: permission denied" on macOS / Linux when running `aelvo`.
-  if (process.platform !== 'win32') {
-    for (const f of ['aelvo.js', 'install.js']) {
-      try { fs.chmodSync(path.join(PKG_ROOT, 'bin', f), 0o755); } catch (_) {}
-    }
+/**
+ * Full setup. Throws on any failure so the caller controls the exit code.
+ *
+ * @returns {{dir:string, pythonPath:string, reused:boolean, key:string}}
+ */
+function runInstall(options) {
+  const opts = options || {};
+  const env = opts.env || process.env;
+  const pkgRoot = opts.pkgRoot || PKG_ROOT;
+  const ui = opts.ui || createUi({ env });
+
+  ensureExecBits(pkgRoot);
+
+  if (env.AELVO_SKIP_BOOTSTRAP === "1") {
+    ui.info("AELVO_SKIP_BOOTSTRAP=1 — skipping environment setup.");
+    return { skipped: true };
   }
 
-  if (!fs.existsSync(REQS)) {
-    log(`requirements-cli.txt not found (${REQS}); skipping dependency install.`);
-    return;
-  }
+  const pkg = opts.pkg || readPackageJson(pkgRoot);
+  const requirements = opts.requirements || deps.readRequirements(deps.requirementsPath(pkgRoot));
+  const lockHash = deps.lockHash(requirements.entries);
 
-  const python = findPython();
-  if (!python) {
-    log("Python not found on PATH. `Aelvo` needs Python 3.10+ — install it, then run `npm rebuild aelvo`.");
-    return;
-  }
+  ui.step("Detecting Python...");
+  const python = (opts.detectPython || detectPython)({ env });
 
-  const venvDir = path.join(PKG_ROOT, ".venv");
-  const venvPython = path.join(venvDir, "Scripts", "python.exe");
-  const venvPythonPosix = path.join(venvDir, "bin", "python");
+  ui.step("Checking Python compatibility...");
+  ui.info(`Using ${python.source} — Python ${formatVersion(python.version)} (supported: 3.10–3.13)`);
+  if (python.warning) ui.warn(python.warning);
 
-  if (fs.existsSync(venvPython) || fs.existsSync(venvPythonPosix)) {
-    log("venv already exists — syncing requirements.");
-  } else {
-    log("Creating Python virtual environment...");
-    const created = spawnSync(python, ["-m", "venv", venvDir], {
-      stdio: "inherit",
-      cwd: PKG_ROOT,
-    });
-    if (created.status !== 0) {
-      log("venv creation failed; falling back to system Python.");
-      return;
-    }
-  }
-
-  const venvPy = fs.existsSync(venvPython) ? venvPython : venvPythonPosix;
-  log("Installing CLI requirements (first install may take a couple of minutes)...");
-  const pip = spawnSync(venvPy, ["-m", "pip", "install", "--disable-pip-version-check", "-r", REQS], {
-    stdio: "inherit",
-    cwd: PKG_ROOT,
-    env: {
-      ...process.env,
-      PIP_NO_INPUT: "1",
-    },
+  const result = runtime.ensureRuntime({
+    pkgRoot,
+    pkgVersion: pkg.version,
+    python,
+    entries: requirements.entries,
+    requirementsPath: requirements.path,
+    lockHash,
+    env,
+    ui,
   });
-  if (pip.status !== 0) {
-    log("pip install failed — check the output above. The CLI will attempt system Python as a fallback.");
-    return;
+
+  ui.step("Preparing AELVO...");
+  if (result.reused) {
+    ui.success(`Environment verified (${result.key || path.basename(result.dir)}).`);
+  } else {
+    ui.success("Environment installed.");
   }
-  log("Aelvo ready. Run `Aelvo` from any folder, or `Aelvo <folder>` to open one.");
+
+  try {
+    runtime.cleanupObsolete(runtime.runtimeRoot(env), { keepKey: result.key });
+  } catch (err) {
+    /* cleanup is opportunistic */
+  }
+
+  ui.success("Aelvo ready. Run `Aelvo` from any folder, or `Aelvo <folder>` to open one.");
+  return result;
 }
 
-main();
+function main(argv) {
+  const args = argv || process.argv.slice(2);
+  const ui = createUi({});
+
+  if (args.includes("--help") || args.includes("-h")) {
+    process.stdout.write(
+      "Usage: node bin/install.js [--verify | --cleanup]\n\n" +
+        "  --verify   check that the Python environment is healthy, then exit\n" +
+        "  --cleanup  remove obsolete AELVO runtime environments\n"
+    );
+    return 0;
+  }
+
+  try {
+    if (args.includes("--cleanup")) {
+      const removed = runtime.cleanupObsolete(runtime.runtimeRoot(process.env), {});
+      ui.info(
+        removed.length
+          ? `Removed ${removed.length} obsolete environment(s): ${removed.join(", ")}`
+          : "No obsolete environments to remove."
+      );
+      return 0;
+    }
+
+    if (args.includes("--verify")) {
+      const pkg = readPackageJson(PKG_ROOT);
+      const requirements = deps.readRequirements(deps.requirementsPath(PKG_ROOT));
+      const lockHash = deps.lockHash(requirements.entries);
+      const found = runtime.scanRuntimes({
+        pkgVersion: pkg.version,
+        lockHash,
+        env: process.env,
+      });
+      if (!found.length) {
+        ui.error("No AELVO Python environment found. Run `npm rebuild aelvo`.");
+        return 1;
+      }
+      const { verifyEnvironment, describeFailure } = deps;
+      const result = verifyEnvironment({
+        pythonPath: found[0].pythonPath,
+        entries: requirements.entries,
+        env: {
+          ...process.env,
+          PYTHONPATH: PKG_ROOT + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : ""),
+        },
+      });
+      if (!result.ok) {
+        ui.error(`Environment is unhealthy: ${describeFailure(result)}`);
+        ui.error("Run `npm rebuild aelvo` to repair it.");
+        return 1;
+      }
+      ui.success(`Environment OK (${found[0].key}).`);
+      return 0;
+    }
+
+    runInstall({});
+    return 0;
+  } catch (err) {
+    ui.error(err && err.message ? err.message : String(err));
+    ui.error("AELVO was not set up. Fix the problem above, then run `npm rebuild aelvo`.");
+    return 1;
+  }
+}
+
+if (require.main === module) {
+  process.exit(main());
+}
+
+module.exports = { ensureExecBits, main, readPackageJson, runInstall };

@@ -64,3 +64,8 @@ web/node_modules/
 
 # 5. Terminal-bench harness artifacts (keep agents, reports, patches tracked)
 aelvo_bench/
+
+# SQLite sidecars (may contain credential data)
+*.db-shm
+*.db-wal
+*.db-journal
