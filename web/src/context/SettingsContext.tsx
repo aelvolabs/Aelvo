@@ -7,10 +7,23 @@ import {
 } from "react";
 import type { WSConfig } from "../types";
 
+const TOKEN_KEY = "aelvo_bridge_token";
+
+function initialToken(): string {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("token");
+    if (fromUrl) return fromUrl;
+    return sessionStorage.getItem(TOKEN_KEY) ?? import.meta.env.VITE_BRIDGE_TOKEN ?? "";
+  } catch {
+    return import.meta.env.VITE_BRIDGE_TOKEN ?? "";
+  }
+}
+
 const DEFAULT_CONFIG: WSConfig = {
-  url: import.meta.env.VITE_WS_URL || "ws://127.0.0.1:8765",
+  url: import.meta.env.VITE_WS_URL || "ws://127.0.0.1:4317",
   reconnectDelay: 3000,
   maxEvents: 500,
+  token: initialToken(),
 };
 
 function loadConfig(): WSConfig {
@@ -22,6 +35,7 @@ function loadConfig(): WSConfig {
         url: parsed.url || DEFAULT_CONFIG.url,
         reconnectDelay: parsed.reconnectDelay ?? DEFAULT_CONFIG.reconnectDelay,
         maxEvents: parsed.maxEvents ?? DEFAULT_CONFIG.maxEvents,
+        token: initialToken(),
       };
     }
   } catch {
@@ -45,7 +59,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setConfig((prev) => {
       const next = { ...prev, ...patch };
       try {
-        localStorage.setItem("aelvo_ws_config", JSON.stringify(next));
+        // The bridge token is a per-launch secret: keep it in session storage,
+        // never in the long-lived UI preferences entry.
+        if (patch.token !== undefined) sessionStorage.setItem(TOKEN_KEY, patch.token);
+        const { token: _token, ...persisted } = next;
+        localStorage.setItem("aelvo_ws_config", JSON.stringify(persisted));
       } catch {
         // Storage full or unavailable — ignore
       }
@@ -54,9 +72,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetConfig = useCallback(() => {
-    setConfig({ ...DEFAULT_CONFIG });
+    setConfig({ ...DEFAULT_CONFIG, token: "" });
     try {
       localStorage.removeItem("aelvo_ws_config");
+      sessionStorage.removeItem(TOKEN_KEY);
     } catch {
       // Ignore
     }

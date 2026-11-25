@@ -1,304 +1,121 @@
-# AELVO Omega
+# AELVO 3.0
 
-**Automated Engineering & Logic-Verification OS**
+**A local-first, governed personal runtime.**
 
-[![npm](https://img.shields.io/npm/v/aelvo?color=cb3837&label=npm&logo=npm)](https://www.npmjs.com/package/aelvo)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+AELVO is a Node/TypeScript runtime that runs tasks through one authoritative
+coordinator. Every tool call passes through a governed executor: policy is
+decided by code, not by the model, privileged actions require a single-use,
+digest-bound user approval, and a tool only counts as successful when its
+effect has been verified by reading state back.
 
-AELVO is a web + terminal multi-agent engineering system that plans and executes complex software engineering tasks using **seven specialized AI agents** coordinated through a canonical pipeline with cross-cutting verification, recovery, and memory.
+## Requirements
 
-```
-User → HERMES → ARCHITECT → ORACLE → FORGE → SENTINEL → TERMINUS → HERALD
-         ↑                          Memory & Intelligence Layer                ↓
-         ←──────────────────── Verification & Recovery ──────────────────────→
-```
+- Node.js 24 or newer (`node:sqlite`, built-in type stripping).
+- A Google Gemini API key for live model calls. Without one, the runtime fails
+  loudly with `PROVIDER_NOT_CONFIGURED` — there is no simulated fallback.
 
----
-
-## Why AELVO Exists
-
-Single-agent coding tools hit a wall on complex tasks. One agent cannot simultaneously:
-
-- **Calibrate** to your communication style and expertise level
-- **Plan** with repository-aware dependency analysis and risk assessment
-- **Research** facts and verify claims against live sources
-- **Generate** code with institutional pattern memory and error recovery
-- **Secure** every change against vulnerabilities and credential leaks
-- **Execute** DevOps commands safely with rollback planning
-- **Report** results with strategic communication advisory
-
-AELVO solves this with **seven specialized agents** that collaborate through a shared coordination layer with visible handoffs, role specialization, and state passing.
-
----
-
-## Key Capabilities
-
-| Capability | How AELVO Does It |
-|---|---|
-| **7 Specialized Agents** | HERMES, ARCHITECT, ORACLE, FORGE, SENTINEL, TERMINUS, HERALD |
-| **Repository Intelligence** | Symbol graph, dependency graph, call graph, impact analysis |
-| **Architect Intelligence** | 14-section strategic plans with verification and recovery design |
-| **Verification Pipeline** | Lint, typecheck, security scan, graph consistency, sandbox validation |
-| **Recovery Engine** | Failure classification, retry safety, governance, learned recovery memory |
-| **Execution Graph** | DAG-based execution with node states, retry policies, output contracts |
-| **Event System** | Typed async event bus with replayable logging |
-| **Memory Systems** | Dual-sync (SQLite + ChromaDB vector), cross-specialist memory |
-| **Learning Engine** | Pattern extraction from execution deltas, confidence calibration |
-| **Web + Terminal UI** | Web dashboard with chat/Files/agent metrics, plus a CodeBuff-style terminal CLI |
-| **Multi-Provider** | 22+ providers: OpenAI, Anthropic, Google, Groq, Mistral, Cohere, xAI, DeepSeek, Together, Fireworks, Perplexity, OpenRouter, Hugging Face, NVIDIA, Azure, Bedrock, Vertex + local (Ollama, LM Studio, vLLM, llama.cpp) |
-| **Long-Horizon Planning** | Session continuity, goal hierarchy, multi-session awareness |
-| **Plan Calibration** | Track outcomes vs plans, adjust future strategies automatically |
-
----
-
-## Quickstart
-
-### Install via npm (recommended)
+## Install
 
 ```bash
-# One-liner — installs the CLI, creates a Python venv, and installs deps
-npm install -g aelvo   # https://www.npmjs.com/package/aelvo
-
-# Activate from ANY folder — the command is the activation (claude/codex style)
-aelvo
+npm install -g aelvo
+aelvo doctor
 ```
 
-`aelvo` opens the **current working directory**. `aelvo <folder>` opens any
-folder. Per-folder state (memory, anchor, backups) lives in a hidden
-`.aelvo/` directory inside the opened folder, so your project tree stays
-clean and every folder gets its own isolated memory. Global state (credential
-vault, global memory, logs) lives in `~/.aelvo/` (`AELVO_DATA_DIR` to
-override). The Rust sandbox is optional — a pure-Python fallback provides the
-same file tools + policy when it's absent.
-
-### Install from source
+From a checkout:
 
 ```bash
-git clone https://github.com/aelvolabs/aelvo.git
-cd aelvo
-pip install -r requirements.txt
-
-# Optional: compile the Rust sandbox for sandboxed execution
-cd sandbox_core && cargo build --release && cd ..
+npm install
+npm run build
+node dist/cli/entry.js doctor
 ```
 
-### Provider Setup
+## Configure
 
 ```bash
-# Copy the example environment file
-cp .env.example .env
-
-# Edit .env with your LLM provider API key:
-#   LLM_PROVIDER=openai
-#   API_KEY=sk-...
-#   MODEL=gpt-5
-#
-# Or use NVIDIA:
-#   LLM_PROVIDER=nvidia
-#   NVIDIA_API_KEY=nvapi-...
-#   MODEL=nvidia/nemotron-3-super-120b-a12b
+export GEMINI_API_KEY=...     # or GOOGLE_API_KEY
+export AELVO_MODEL=gemini-2.5-flash
+export AELVO_WORKSPACE=/path/to/folder   # default: current directory
+export AELVO_DATA_DIR=~/.aelvo           # default
 ```
 
-### Launch
+The model identifier is never hardcoded. Credentials are stored through the OS
+backend (DPAPI on Windows, Keychain on macOS, `secret-tool` on Linux); there is
+no plaintext fallback.
+
+## Use
 
 ```bash
-# Activate in the current folder (npm-installed or from source)
-aelvo                 # opens the current directory
-aelvo ./my-project    # opens any folder
-aelvo "refactor the auth module"   # one-shot prompt in the current folder
-
-# From source, these are equivalent:
-python -m cli                         # opens the current directory
-python -m cli ./my-project            # opens any folder
-python -m cli -w ./my-project --provider openai --model gpt-5
-
-# Full boot → CLI (runs the whole platform first)
-python main.py
-
-# Launch the web dashboard instead
-python main.py --web
+aelvo doctor                 # verify the environment, honestly (exit 1 on failure)
+aelvo config                 # resolved paths and policy
+aelvo run "summarize notes.md"   # one governed run
+aelvo chat                   # interactive loop
+aelvo plan --materialize "1. step one
+2. step two"   # durable, dependent tasks
+aelvo serve                  # authenticated local WebSocket bridge
+aelvo memory remember "..."  # durable memory with provenance
+aelvo task list              # durable task queue
+aelvo mcp status             # MCP servers and their tools
 ```
 
----
+Exit codes: `0` success, `1` runtime failure, `2` usage error, `3` approval
+required.
 
-## Terminal CLI (`aelvo`, `python -m cli`)
+## What is governed
 
-A dedicated interactive terminal agent in the spirit of CodeBuff / Claude
-Code, reusing the exact same backend as the web dashboard. `python -m cli`
-boots a **lean** backend (kernel, filesystem, memory, orchestrator, provider
-runtime) and skips the heavy optional subsystems the web boot runs (MCP
-discovery, long-horizon planning, repo scans), so the prompt appears in a
-couple of seconds. Type any natural language task — Enter submits,
-`Esc+Enter` inserts a newline, and tool calls (read/write/bash/scrape/memory)
-render live as the agent works.
-
-```text
-❯ refactor the authentication module to use async database sessions
-  ✓ ✏️ write_file core/auth/session.py
-  ✓ ⚙️ bash_exec python -m pytest tests/test_auth.py
-  …
-  **Done.** Migrated the session store to an async engine and verified it.
-```
-
-Force-route to specific specialists with `@SPECIALIST` prefixes:
-
-```text
-❯ @FORGE fix the race condition in worker.py
-❯ @ORACLE research the latest changes to Python 3.13
-❯ @ARCHITECT design a database schema for the new reporting feature
-```
-
-### Slash Commands
-
-| Command | Description |
+| Boundary | Behaviour |
 |---|---|
-| `/help` | Show all commands |
-| `/exit` · `/quit` | Exit the CLI |
-| `/clear [history]` | Clear the screen; `/clear history` resets the conversation |
-| `/pwd` | Print the active folder |
-| `/status` | Provider, model, folder + live agent metrics |
-| `/provider [name] [key]` | Two-step interactive picker: choose a provider, then one of its models (or `/provider <name> [key]` directly); the API key is asked inline as part of selection — existing keys can be replaced/rotated right in the picker — and stored in the encrypted vault |
-| `/model [name]` | Open an interactive picker to switch the active model (or `/model <name>` directly) |
-| `/mode [low\|medium\|high\|max]` | Dial the agent effort: `low` plain chat, `medium` chat + tools, `high` full agent pipeline (default), `max` collaborative Mode B |
+| Tool execution | Only through the governed executor; Zod-validated input; evidence required |
+| Permissions | Decided by the security policy service; the model cannot grant itself access |
+| Privileged actions | Pause for approval; approvals are single-use, digest-bound and die on restart |
+| Process execution | Fails closed when the native Rust sandbox is unavailable |
+| Secret files | `.env*`, `id_rsa`, `*.pem`, `*.key`, `.npmrc`, `.git-credentials` are denied to every tool |
+| Paths | Workspace-contained with symlink-aware canonicalisation |
+| Remote UI | Loopback only, origin allowlist, auth-first handshake, payload cap, rate limit |
+| Provider | Google Gemini through the provider gateway; no mock in production |
 
-### Effort Modes
-
-Small messages don't need the whole multi-agent ceremony. Use `/mode` (or
-set `AELVO_MODE` in the environment) to pick how much machinery runs per
-turn:
-
-| Mode | What runs |
-|---|---|
-| `low` | One direct answer — no tools, no specialists, no plan. Fastest |
-| `medium` | Direct answer, but tools are available when needed (Claude Code style) |
-| `high` | Full consolidated pipeline: HERMES → ARCHITECT → FORGE → … → HERALD (default) |
-| `max` | Collaborative task-board pipeline with decomposition, consensus, verification, recovery |
-
-There is no workspace registry or `/workspace` command — `aelvo` opens any
-folder directly (the current directory by default, or `aelvo <folder>`), and
-per-folder state lives in `.aelvo/` inside that folder. API keys are stored
-in the universal AELVO space (`~/.aelvo`), never inside the opened folder.
-
-**Local runtimes** (Ollama, LM Studio, vLLM, llama.cpp) are first-class
-providers: pick them like any other — no API key needed. The model list is
-fetched live from your local server (`localhost:11434`, `:1234`, `:8000`,
-`:8080` respectively), with the curated catalog as fallback.
-| `/log [lines]` | Tail the AELVO log file |
-| `/version` | Show version and environment info |
-| `/retry` | Re-run the previous prompt |
-| `/ask <prompt>` | Run a prompt without the agent loop |
-
----
-
-## Web Dashboard (`python main.py --web`)
-
-`python main.py --web` serves the web dashboard (HTTP + WebSocket bridge):
-chat, a terminal-style **Files** page with an *Open as Workspace* action,
-agent metrics, and provider setup from the browser. The terminal CLI is the
-default interface; add `--no-browser` to run the server headless.
-
----
-
-## Architecture Overview
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        AELVO OMEGA                               │
-│                                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │ HERMES    │→│ ARCHITECT│→│ ORACLE   │→│ FORGE    │        │
-│  │ Calibrate │  │ Plan     │  │ Research │  │ Code     │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-│       ↓              ↓              ↓             ↓            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                     │
-│  │ SENTINEL │→│ TERMINUS │→│ HERALD   │                     │
-│  │ Security │  │ DevOps   │  │ Report   │                     │
-│  └──────────┘  └──────────┘  └──────────┘                     │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │               Cross-Cutting Subsystems                    │  │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐  │  │
-│  │  │ Runtime   │  │ Verify   │  │ Recovery │  │ Memory  │  │  │
-│  │  │ Pipeline  │  │ Pipeline │  │ Engine   │  │ Systems │  │  │
-│  │  └──────────┘  └──────────┘  └──────────┘  └─────────┘  │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
-│  │ Repo     │  │ Architect│  │ Learning │  │ Provider     │    │
-│  │ Intel    │  │ Brain    │  │ Engine   │  │ Runtime      │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
+src/app.ts                     composition root
+src/cli/entry.ts               CLI
+src/runtime/coordinator/       single authoritative run loop
+src/runtime/execution/graph.ts dependency graph, lifecycle, retries, conditions
+src/runtime/recovery/          failure classification and retry safety
+src/tools/                     registry, filesystem tools, governed executor
+src/security/                  policy, paths, approvals, audit, credentials, sandbox
+src/memory/                    durable memory with provenance and supersession
+src/tasks/, src/scheduler/     durable task queue and schedules
+src/intelligence/providers/    provider gateway (Google, unconfigured, mock for tests)
+src/mcp/                       official MCP SDK manager
+src/runtime/bridge/            authenticated local bridge
+web/                           React/Vite shell (bridge consumer)
+sandbox_core/                  Rust security primitives
 ```
 
-### Key Files
+## Tests
 
-| File | Purpose |
-|---|---|
-| `main.py` | Entry point, `AelvoAgent`, web/CLI boot |
-| `cli/app.py` | Terminal CLI — REPL, live tool rendering, slash commands |
-| `core/orchestration/orchestrator.py` | `Orchestrator` — central coordinator |
-| `core/orchestration/pipeline.py` | `RuntimePipeline` — canonical execution pipeline |
-| `specialists/*.py` | 7 specialist implementations |
-| `runtime_next/engine/engine.py` | `ExecutionGraph` & `ExecutionEngine` |
-| `runtime_next/events/bus.py` | Async typed `EventBus` with replay |
-| `runtime_next/recovery/engine.py` | `RecoveryEngine` — failure classification & recovery |
-| `runtime_next/verification/pipeline.py` | `VerificationPipeline` — plugin-based verifiers |
-| `runtime_next/plan/architect.py` | `ArchitectOrchestrator` — strategic planning |
-| `runtime_next/plan/brain.py` | 13-engine `ArchitectIntelligenceBrain` |
-| `repo_intelligence/engine.py` | `RepoIntelligenceEngine` — symbol & dependency graphs |
-| `learning/engine.py` | `PatternExtractionEngine` — execution pattern learning |
-| `cognition/engine.py` | `CognitiveEngine` — goals, planning, research, consensus |
-| `web/` | Web dashboard (React frontend + WebSocket bridge) |
-
----
-
-## Example Workflow
-
-```text
-$ cd ~/projects/my-app          # open any folder — no workspace setup needed
-$ aelvo
-AELVO
-────────────────────────────────────────────────────────────────
-  project: my-app   provider: nvidia   model: nvidia/nemotron-3-super
-  folder: C:/Users/you/projects/my-app
-
-type /help for commands · Esc+Enter for a newline · Ctrl+C to exit
-❯ Fix the race condition in the worker pool module
-
-[Thinking] ⠋
-✓ Pipeline completed: SUCCESS in 12.3s with 7 phases (1 LLM call)
-
-  ── AELVO PIPELINE EXECUTION ──
-  Phases: calibration → planning → research → implementation → security → execution → reporting
-  Result: ✅ SUCCESS
-  Duration: 12300ms
-  Memory: Consolidated
-
-  Verification:
-    ✓ calibration: verification passed
-    ✓ planning: verification passed
-    ✓ implementation: verification passed
-    ✓ security: verification passed
-    ✓ execution: verification passed
-
-[AELVO] Fixed the race condition in worker_pool.py by replacing the
-shared mutable state with an asyncio.Queue and adding proper worker
-lifecycle management. The fix was verified with type checks and tests.
+```bash
+npm test              # Vitest suites in tests/ts
+npm run test:install  # Node installer/launcher tests
+npm run verify        # typecheck + build + unit tests
 ```
 
-AELVO never litters your project — all per-folder state lives in a hidden
-`.aelvo/` directory inside the opened folder, so `git status` stays clean:
+Tests use the scripted mock provider; live provider calls require a real key.
 
-```text
-$ ls -a ~/projects/my-app
-.  ..  .aelvo  worker_pool.py
+## Status and limits
 
-$ ls ~/projects/my-app/.aelvo
-anchor.md    backups/    history    memory.db
-```
+The Python production runtime from AELVO 2.x has been retired. The 3.0 runtime
+is TypeScript. Some acceptance evidence cannot be produced on every host:
 
----
+- Live model verification requires a provider key.
+- The Rust sandbox must be compiled (`cargo build --release` in `sandbox_core`)
+  before process execution is available; until then it fails closed.
+- macOS/Linux credential backends are implemented but only the Windows DPAPI
+  path has been exercised here.
 
-## License
+The legacy Python implementation is retained locally in `archive/`, which is
+Git-ignored and excluded from the TypeScript build, tests and npm package. It is
+a reference for further ports, not part of the running application.
 
-MIT — see LICENSE for details.
+See `AELVO_PORT_MAPPING.json` for every archived module's disposition and
+`AELVO_TRANSFORMATION_REPORT.md` for the honest gate-by-gate result.

@@ -20,7 +20,8 @@ exclude .github/
 exclude docs/
 exclude *.md
 
-# Exclude node_modules and Python artifacts
+# Exclude the local legacy archive and Python artifacts
+exclude archive/
 exclude node_modules/
 exclude __pycache__/
 exclude *.pyc

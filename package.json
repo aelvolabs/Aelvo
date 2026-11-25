@@ -1,14 +1,14 @@
 {
   "name": "aelvo",
   "version": "3.0.0",
-  "description": "AELVO — the automated engineering & logic-verification agent. Plan, code, verify and report from any folder, like claude/codex/codebuff.",
+  "description": "AELVO — local-first governed personal runtime with tool execution, approvals, memory, tasks and an authenticated local bridge.",
   "keywords": [
     "ai",
-    "agent",
+    "assistant",
     "cli",
-    "coding-agent",
     "llm",
-    "terminal"
+    "local-first",
+    "memory"
   ],
   "license": "MIT",
   "author": "aelvolabs",
@@ -21,10 +21,10 @@
     "Aelvo": "dist/cli/entry.js",
     "aelvo": "dist/cli/entry.js"
   },
-  "main": "dist/main.js",
+  "main": "dist/app.js",
   "exports": {
-    ".": "./dist/main.js",
-    "./contracts": "./dist/shared/contracts.js"
+    ".": "./dist/app.js",
+    "./contracts": "./dist/shared/contracts/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -34,6 +34,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:install": "node --test tests/install/",
+    "postinstall": "node bin/install.js",
     "verify": "npm run typecheck && npm run build && npm test",
     "prepublishOnly": "npm run verify"
   },
@@ -51,9 +52,8 @@
     "!**/*.test.js"
   ],
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
-    "@google/genai": "^1.30.0",
-    "openai": "^6.9.0",
+    "@google/genai": "^1.52.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "pino": "^10.1.0",
     "ws": "^8.18.3",
     "zod": "^4.1.12"

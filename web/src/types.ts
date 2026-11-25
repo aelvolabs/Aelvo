@@ -1,7 +1,7 @@
-/** Matches UIEventType from the Python backend */
+/** Event type rendered by the UI. Runtime events are adapted to this shape. */
 export type UIEventType = string;
 
-/** A UIEvent from the Python bridge, serialised as JSON */
+/** A UI event adapted from a typed runtime event. */
 export interface UIEvent {
   type: UIEventType;
   source: string;
@@ -398,6 +398,7 @@ export interface WSConfig {
   url: string;
   reconnectDelay: number;
   maxEvents: number;
+  token: string;
 }
 
 /** ── CLI-style File Access Types ───────────────────────────── */

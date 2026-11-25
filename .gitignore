@@ -69,3 +69,6 @@ aelvo_bench/
 *.db-shm
 *.db-wal
 *.db-journal
+
+# Archived legacy Python implementation (local reference only)
+/archive/

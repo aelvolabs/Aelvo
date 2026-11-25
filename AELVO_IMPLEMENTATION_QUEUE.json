@@ -1,0 +1,2313 @@
+{
+  "schema": "aelvo-implementation-queue/1",
+  "generated_at": "2026-11-24",
+  "source": [
+    "AELVO_PORT_MAPPING.json",
+    "AELVO_DEPENDENCY_GRAPH.json",
+    "AELVO_MODULE_INVENTORY.json"
+  ],
+  "summary": {
+    "entries": 120,
+    "statuses": {
+      "INTENTIONALLY_REMOVED": 267,
+      "PARTIALLY_PORTED": 110,
+      "ENVIRONMENT_BLOCKED": 3,
+      "VERIFIED_PORT": 1,
+      "NOT_STARTED": 7
+    },
+    "max_wave": 6,
+    "cycles_resolved_by_priority": 0
+  },
+  "entries": [
+    {
+      "order": 1,
+      "wave": 1,
+      "original_path": "archive/core/governance/kernel.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryService",
+      "source_loc": 548,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 30
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 2,
+      "wave": 1,
+      "original_path": "archive/core/orchestration/context_builder.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/context/context-builder.ts",
+      "target_symbol": "ContextBuilder",
+      "source_loc": 206,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 3
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 3,
+      "wave": 1,
+      "original_path": "archive/core/orchestration/session_manager.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryService",
+      "source_loc": 92,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 4
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 4,
+      "wave": 1,
+      "original_path": "archive/core/rag/rag.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryService",
+      "source_loc": 589,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 31
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 5,
+      "wave": 1,
+      "original_path": "archive/core/security/execution_sandbox.py",
+      "status": "ENVIRONMENT_BLOCKED",
+      "target_path": "src/security/sandbox/index.ts",
+      "target_symbol": "SandboxBridge",
+      "source_loc": 1008,
+      "symbol_counts": {
+        "classes": 8,
+        "functions": 35
+      },
+      "dependencies": [],
+      "next_action": "Complete independent TypeScript behavior and tests; native containment awaits the Rust toolchain.",
+      "blocker": {
+        "affected_symbols": [
+          "ExecutionSandbox",
+          "SandboxCapability",
+          "RollbackApprovalGate"
+        ],
+        "cause": "Rust sandbox runtime cannot be built or exercised on this host.",
+        "attempted_resolution": "cargo --version, rustup --version and rustc --version failed; sandbox_core/target is absent.",
+        "remaining_prerequisite": "Rust toolchain plus a built sandbox_core binary.",
+        "independent_work": "TypeScript bridge, fail-closed behavior and status diagnostics remain testable."
+      }
+    },
+    {
+      "order": 6,
+      "wave": 1,
+      "original_path": "archive/runtime_next/capability/registry.py",
+      "status": "NOT_STARTED",
+      "target_path": null,
+      "target_symbol": null,
+      "source_loc": 319,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 18
+      },
+      "dependencies": [],
+      "next_action": "Inspect archived symbols, select general-purpose behavior, port it, integrate it, and verify it.",
+      "blocker": null
+    },
+    {
+      "order": 7,
+      "wave": 1,
+      "original_path": "archive/runtime_next/engine/engine.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/execution/graph.ts",
+      "target_symbol": "GraphExecutionEngine",
+      "source_loc": 312,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 17
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 8,
+      "wave": 1,
+      "original_path": "archive/runtime_next/engine/file_mutex.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/execution/tool-graph.ts",
+      "target_symbol": "ToolGraphExecutor",
+      "source_loc": 22,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 3
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 9,
+      "wave": 1,
+      "original_path": "archive/runtime_next/engine/runner.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/execution/graph.ts",
+      "target_symbol": "GraphRunner",
+      "source_loc": 41,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 6
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 10,
+      "wave": 1,
+      "original_path": "archive/runtime_next/governance/recovery_hooks.py",
+      "status": "NOT_STARTED",
+      "target_path": null,
+      "target_symbol": null,
+      "source_loc": 382,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 15
+      },
+      "dependencies": [],
+      "next_action": "Inspect archived symbols, select general-purpose behavior, port it, integrate it, and verify it.",
+      "blocker": null
+    },
+    {
+      "order": 11,
+      "wave": 1,
+      "original_path": "archive/runtime_next/recovery/engine.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/recovery/manager.ts",
+      "target_symbol": "RecoveryManager",
+      "source_loc": 812,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 25
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 12,
+      "wave": 1,
+      "original_path": "archive/runtime_next/security/orchestrator.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/sandbox/index.ts",
+      "target_symbol": "SandboxBridge",
+      "source_loc": 521,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 21
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 13,
+      "wave": 1,
+      "original_path": "archive/memory/user_model.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryService",
+      "source_loc": 300,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 6
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 14,
+      "wave": 1,
+      "original_path": "archive/mcp/client/capability_negotiator.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 233,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 7
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 15,
+      "wave": 1,
+      "original_path": "archive/mcp/client/reconnect_policy.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 71,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 7
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 16,
+      "wave": 1,
+      "original_path": "archive/mcp/client/session_manager.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 145,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 11
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 17,
+      "wave": 1,
+      "original_path": "archive/auth/circuit_breaker.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/google/gateway.ts",
+      "target_symbol": "GoogleGateway",
+      "source_loc": 150,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 13
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 18,
+      "wave": 1,
+      "original_path": "archive/auth/providers/google.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/google/gateway.ts",
+      "target_symbol": "GoogleGateway",
+      "source_loc": 150,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 5
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 19,
+      "wave": 1,
+      "original_path": "archive/auth/ratelimiter.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/google/gateway.ts",
+      "target_symbol": "GoogleGateway",
+      "source_loc": 125,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 12
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 20,
+      "wave": 1,
+      "original_path": "archive/tools/security_tools.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/tools/filesystem/tools.ts",
+      "target_symbol": "createFilesystemTools",
+      "source_loc": 181,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 3
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 21,
+      "wave": 1,
+      "original_path": "archive/cli/__main__.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/cli/entry.ts",
+      "target_symbol": "main",
+      "source_loc": 239,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 7
+      },
+      "dependencies": [],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 22,
+      "wave": 2,
+      "original_path": "archive/core/execution/sandbox_session.py",
+      "status": "ENVIRONMENT_BLOCKED",
+      "target_path": "src/security/sandbox/index.ts",
+      "target_symbol": "SandboxBridge",
+      "source_loc": 527,
+      "symbol_counts": {
+        "classes": 6,
+        "functions": 22
+      },
+      "dependencies": [
+        "core/security/execution_sandbox.py"
+      ],
+      "next_action": "Complete independent TypeScript behavior and tests; native containment awaits the Rust toolchain.",
+      "blocker": {
+        "affected_symbols": [
+          "PersistentSandboxSession",
+          "SandboxSessionCheckpoint"
+        ],
+        "cause": "Sandbox session runtime depends on the unavailable native sandbox.",
+        "attempted_resolution": "cargo --version, rustup --version and rustc --version failed; sandbox_core/target is absent.",
+        "remaining_prerequisite": "Rust toolchain plus a built sandbox_core binary.",
+        "independent_work": "TypeScript bridge, fail-closed behavior and status diagnostics remain testable."
+      }
+    },
+    {
+      "order": 23,
+      "wave": 2,
+      "original_path": "archive/core/execution/tool_registry.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/tools/executor/executor.ts",
+      "target_symbol": "ToolExecutor",
+      "source_loc": 641,
+      "symbol_counts": {
+        "classes": 7,
+        "functions": 28
+      },
+      "dependencies": [
+        "core/security/execution_sandbox.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 24,
+      "wave": 2,
+      "original_path": "archive/core/rag/chunking.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryService",
+      "source_loc": 142,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 7
+      },
+      "dependencies": [
+        "core/rag/rag.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 25,
+      "wave": 2,
+      "original_path": "archive/core/rag/retrieval.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryService",
+      "source_loc": 394,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 18
+      },
+      "dependencies": [
+        "core/rag/rag.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 26,
+      "wave": 2,
+      "original_path": "archive/core/security/security_orchestrator.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/policies/policy.ts",
+      "target_symbol": "PolicyService",
+      "source_loc": 699,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 18
+      },
+      "dependencies": [
+        "core/security/execution_sandbox.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 27,
+      "wave": 2,
+      "original_path": "archive/runtime_next/events/bus.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/events/bus.ts",
+      "target_symbol": "EventBus",
+      "source_loc": 148,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 11
+      },
+      "dependencies": [
+        "runtime_next/capability/registry.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 28,
+      "wave": 2,
+      "original_path": "archive/runtime_next/governance/policy_engine.py",
+      "status": "NOT_STARTED",
+      "target_path": null,
+      "target_symbol": null,
+      "source_loc": 480,
+      "symbol_counts": {
+        "classes": 7,
+        "functions": 25
+      },
+      "dependencies": [
+        "runtime_next/governance/recovery_hooks.py"
+      ],
+      "next_action": "Inspect archived symbols, select general-purpose behavior, port it, integrate it, and verify it.",
+      "blocker": null
+    },
+    {
+      "order": 29,
+      "wave": 2,
+      "original_path": "archive/runtime_next/models/capability.py",
+      "status": "NOT_STARTED",
+      "target_path": null,
+      "target_symbol": null,
+      "source_loc": 43,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 0
+      },
+      "dependencies": [
+        "runtime_next/capability/registry.py"
+      ],
+      "next_action": "Inspect archived symbols, select general-purpose behavior, port it, integrate it, and verify it.",
+      "blocker": null
+    },
+    {
+      "order": 30,
+      "wave": 2,
+      "original_path": "archive/runtime_next/models/node.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/execution/graph.ts",
+      "target_symbol": "NodeDefinition",
+      "source_loc": 57,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 3
+      },
+      "dependencies": [
+        "runtime_next/engine/engine.py",
+        "runtime_next/recovery/engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 31,
+      "wave": 2,
+      "original_path": "archive/runtime_next/recovery/task_recovery.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/recovery/checkpoints.ts",
+      "target_symbol": "CheckpointStore",
+      "source_loc": 465,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 14
+      },
+      "dependencies": [
+        "runtime_next/recovery/engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 32,
+      "wave": 2,
+      "original_path": "archive/runtime_next/security/policy_audit.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/audit/log.ts",
+      "target_symbol": "AuditLog",
+      "source_loc": 554,
+      "symbol_counts": {
+        "classes": 5,
+        "functions": 23
+      },
+      "dependencies": [
+        "runtime_next/security/orchestrator.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 33,
+      "wave": 2,
+      "original_path": "archive/runtime_next/security/sandbox_integrity.py",
+      "status": "ENVIRONMENT_BLOCKED",
+      "target_path": "src/security/sandbox/index.ts",
+      "target_symbol": "SandboxBridge",
+      "source_loc": 610,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 18
+      },
+      "dependencies": [
+        "runtime_next/security/orchestrator.py"
+      ],
+      "next_action": "Complete independent TypeScript behavior and tests; native containment awaits the Rust toolchain.",
+      "blocker": {
+        "affected_symbols": [
+          "SandboxIntegrityVerifier",
+          "IntegrityCheckResult"
+        ],
+        "cause": "Binary integrity verification requires a built sandbox binary.",
+        "attempted_resolution": "cargo --version, rustup --version and rustc --version failed; sandbox_core/target is absent.",
+        "remaining_prerequisite": "Rust toolchain plus a built sandbox_core binary.",
+        "independent_work": "TypeScript bridge, fail-closed behavior and status diagnostics remain testable."
+      }
+    },
+    {
+      "order": 34,
+      "wave": 2,
+      "original_path": "archive/runtime_next/security/scanner.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/sandbox/index.ts",
+      "target_symbol": "SandboxBridge",
+      "source_loc": 683,
+      "symbol_counts": {
+        "classes": 5,
+        "functions": 24
+      },
+      "dependencies": [
+        "runtime_next/security/orchestrator.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 35,
+      "wave": 2,
+      "original_path": "archive/runtime_next/verification/classifier.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/recovery/index.ts",
+      "target_symbol": "FailureClassifier",
+      "source_loc": 462,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 13
+      },
+      "dependencies": [
+        "runtime_next/recovery/engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 36,
+      "wave": 2,
+      "original_path": "archive/runtime_next/verification/recovery.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/recovery/index.ts",
+      "target_symbol": "RecoveryStrategyEngine",
+      "source_loc": 345,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 10
+      },
+      "dependencies": [
+        "runtime_next/recovery/engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 37,
+      "wave": 2,
+      "original_path": "archive/runtime_next/verification/retry_safety.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/recovery/index.ts",
+      "target_symbol": "RetrySafetyEngine",
+      "source_loc": 386,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 14
+      },
+      "dependencies": [
+        "runtime_next/recovery/engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 38,
+      "wave": 2,
+      "original_path": "archive/cli/boot.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/cli/entry.ts",
+      "target_symbol": "main",
+      "source_loc": 220,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 1
+      },
+      "dependencies": [
+        "cli/__main__.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 39,
+      "wave": 3,
+      "original_path": "archive/core/filesystem/automation.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/tools/filesystem/tools.ts",
+      "target_symbol": "createFilesystemTools",
+      "source_loc": 864,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 34
+      },
+      "dependencies": [
+        "core/execution/sandbox_session.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 40,
+      "wave": 3,
+      "original_path": "archive/core/rag/types.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryService",
+      "source_loc": 136,
+      "symbol_counts": {
+        "classes": 10,
+        "functions": 1
+      },
+      "dependencies": [
+        "core/rag/chunking.py",
+        "core/rag/rag.py",
+        "core/rag/retrieval.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 41,
+      "wave": 3,
+      "original_path": "archive/core/registry/models.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/types.ts",
+      "target_symbol": "ProviderGateway",
+      "source_loc": 796,
+      "symbol_counts": {
+        "classes": 6,
+        "functions": 11
+      },
+      "dependencies": [
+        "cli/boot.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 42,
+      "wave": 3,
+      "original_path": "archive/core/security/approval_manager.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/approvals/service.ts",
+      "target_symbol": "ApprovalService",
+      "source_loc": 551,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 22
+      },
+      "dependencies": [
+        "core/security/security_orchestrator.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 43,
+      "wave": 3,
+      "original_path": "archive/core/security/security_analytics.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/observability/logger.ts",
+      "target_symbol": "createLogger",
+      "source_loc": 427,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 13
+      },
+      "dependencies": [
+        "core/security/security_orchestrator.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 44,
+      "wave": 3,
+      "original_path": "archive/runtime_next/models/plan.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/execution/graph.ts",
+      "target_symbol": "ExecutionGraph",
+      "source_loc": 316,
+      "symbol_counts": {
+        "classes": 14,
+        "functions": 22
+      },
+      "dependencies": [
+        "runtime_next/engine/engine.py",
+        "runtime_next/engine/runner.py",
+        "runtime_next/models/node.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 45,
+      "wave": 3,
+      "original_path": "archive/runtime_next/verification/types.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/recovery/index.ts",
+      "target_symbol": "FailureClassification",
+      "source_loc": 549,
+      "symbol_counts": {
+        "classes": 16,
+        "functions": 8
+      },
+      "dependencies": [
+        "core/security/security_orchestrator.py",
+        "runtime_next/recovery/engine.py",
+        "runtime_next/security/scanner.py",
+        "runtime_next/verification/classifier.py",
+        "runtime_next/verification/recovery.py",
+        "runtime_next/verification/retry_safety.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 46,
+      "wave": 4,
+      "original_path": "archive/core/security/security_memory.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/policies/policy.ts",
+      "target_symbol": "PolicyService",
+      "source_loc": 699,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 29
+      },
+      "dependencies": [
+        "core/security/security_analytics.py",
+        "core/security/security_orchestrator.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 47,
+      "wave": 5,
+      "original_path": "archive/core/security/execution_governance.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/policies/policy.ts",
+      "target_symbol": "PolicyService",
+      "source_loc": 621,
+      "symbol_counts": {
+        "classes": 6,
+        "functions": 21
+      },
+      "dependencies": [
+        "core/security/approval_manager.py",
+        "core/security/execution_sandbox.py",
+        "core/security/security_analytics.py",
+        "core/security/security_memory.py",
+        "core/security/security_orchestrator.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 48,
+      "wave": 4,
+      "original_path": "archive/config/settings.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/config/index.ts",
+      "target_symbol": "loadConfig",
+      "source_loc": 131,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 1
+      },
+      "dependencies": [
+        "main.py",
+        "auth/cred_storage.py",
+        "cli/commands.py",
+        "cli/update_check.py",
+        "core/provider_runtime.py",
+        "core/startup.py",
+        "core/filesystem/automation.py",
+        "core/orchestration/context_builder.py",
+        "memory/user_model.py",
+        "planning/goal_hierarchy.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 49,
+      "wave": 3,
+      "original_path": "archive/core/provider_runtime.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/google/gateway.ts",
+      "target_symbol": "GoogleGateway",
+      "source_loc": 898,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 35
+      },
+      "dependencies": [
+        "main.py",
+        "cli/boot.py",
+        "web/web_bridge.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 50,
+      "wave": 4,
+      "original_path": "archive/auth/monitoring/degradation.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/google/gateway.ts",
+      "target_symbol": "GoogleGateway",
+      "source_loc": 269,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 10
+      },
+      "dependencies": [
+        "core/provider_runtime.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 51,
+      "wave": 4,
+      "original_path": "archive/auth/monitoring/health.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/google/gateway.ts",
+      "target_symbol": "GoogleGateway",
+      "source_loc": 282,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 14
+      },
+      "dependencies": [
+        "core/provider_runtime.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 52,
+      "wave": 4,
+      "original_path": "archive/auth/monitoring/metrics.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/google/gateway.ts",
+      "target_symbol": "GoogleGateway",
+      "source_loc": 216,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 16
+      },
+      "dependencies": [
+        "core/provider_runtime.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 53,
+      "wave": 3,
+      "original_path": "archive/core/startup.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/app.ts",
+      "target_symbol": "AelvoApplication",
+      "source_loc": 236,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 6
+      },
+      "dependencies": [
+        "main.py",
+        "cli/boot.py",
+        "web/web_bridge.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 54,
+      "wave": 3,
+      "original_path": "archive/core/system_prompt.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/context/context-builder.ts",
+      "target_symbol": "BASE_SYSTEM",
+      "source_loc": 220,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 3
+      },
+      "dependencies": [
+        "main.py",
+        "cli/boot.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 55,
+      "wave": 3,
+      "original_path": "archive/runtime_next/models/events.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/shared/contracts/index.ts",
+      "target_symbol": "RuntimeEventSchema",
+      "source_loc": 393,
+      "symbol_counts": {
+        "classes": 18,
+        "functions": 10
+      },
+      "dependencies": [
+        "cli/session.py",
+        "core/security/security_orchestrator.py",
+        "mcp/events/event_publisher.py",
+        "runtime_next/capability/registry.py",
+        "runtime_next/engine/engine.py",
+        "runtime_next/events/bus.py",
+        "runtime_next/recovery/engine.py",
+        "web/web_bridge.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 56,
+      "wave": 2,
+      "original_path": "archive/runtime_next/monitoring/alerting.py",
+      "status": "NOT_STARTED",
+      "target_path": null,
+      "target_symbol": null,
+      "source_loc": 399,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 20
+      },
+      "dependencies": [
+        "runtime_next/monitoring/cli.py",
+        "runtime_next/monitoring/dashboard.py",
+        "runtime_next/recovery/engine.py"
+      ],
+      "next_action": "Inspect archived symbols, select general-purpose behavior, port it, integrate it, and verify it.",
+      "blocker": null
+    },
+    {
+      "order": 57,
+      "wave": 3,
+      "original_path": "archive/runtime_next/monitoring/cli.py",
+      "status": "NOT_STARTED",
+      "target_path": null,
+      "target_symbol": null,
+      "source_loc": 279,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 8
+      },
+      "dependencies": [
+        "main.py",
+        "cli/boot.py"
+      ],
+      "next_action": "Inspect archived symbols, select general-purpose behavior, port it, integrate it, and verify it.",
+      "blocker": null
+    },
+    {
+      "order": 58,
+      "wave": 4,
+      "original_path": "archive/runtime_next/monitoring/dashboard.py",
+      "status": "NOT_STARTED",
+      "target_path": null,
+      "target_symbol": null,
+      "source_loc": 210,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 11
+      },
+      "dependencies": [
+        "main.py",
+        "cli/boot.py",
+        "runtime_next/monitoring/cli.py"
+      ],
+      "next_action": "Inspect archived symbols, select general-purpose behavior, port it, integrate it, and verify it.",
+      "blocker": null
+    },
+    {
+      "order": 59,
+      "wave": 5,
+      "original_path": "archive/runtime_next/monitoring/health.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/observability/metrics.ts",
+      "target_symbol": "HealthMonitor",
+      "source_loc": 340,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 17
+      },
+      "dependencies": [
+        "runtime_next/monitoring/dashboard.py",
+        "runtime_next/security/orchestrator.py",
+        "runtime_next/security/sandbox_integrity.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 60,
+      "wave": 5,
+      "original_path": "archive/runtime_next/monitoring/metrics.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/observability/metrics.ts",
+      "target_symbol": "RuntimeMetrics",
+      "source_loc": 515,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 40
+      },
+      "dependencies": [
+        "runtime_next/monitoring/dashboard.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 61,
+      "wave": 2,
+      "original_path": "archive/memory/types.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/memory/service.ts",
+      "target_symbol": "MemoryItem",
+      "source_loc": 87,
+      "symbol_counts": {
+        "classes": 11,
+        "functions": 1
+      },
+      "dependencies": [
+        "planning/memory_types.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 62,
+      "wave": 2,
+      "original_path": "archive/planning/goal_hierarchy.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/planning/planner.ts",
+      "target_symbol": "planFromRequest",
+      "source_loc": 805,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 31
+      },
+      "dependencies": [
+        "planning/integration.py",
+        "planning/multi_session.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 63,
+      "wave": 2,
+      "original_path": "archive/planning/integration.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/planning/planner.ts",
+      "target_symbol": "planFromRequest",
+      "source_loc": 517,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 17
+      },
+      "dependencies": [
+        "main.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 64,
+      "wave": 3,
+      "original_path": "archive/planning/multi_session.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/planning/planner.ts",
+      "target_symbol": "planFromRequest",
+      "source_loc": 404,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 10
+      },
+      "dependencies": [
+        "planning/integration.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 65,
+      "wave": 4,
+      "original_path": "archive/planning/memory_types.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/planning/planner.ts",
+      "target_symbol": "planFromRequest",
+      "source_loc": 376,
+      "symbol_counts": {
+        "classes": 12,
+        "functions": 3
+      },
+      "dependencies": [
+        "planning/goal_hierarchy.py",
+        "planning/integration.py",
+        "planning/multi_session.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 66,
+      "wave": 2,
+      "original_path": "archive/mcp/capability/capability_engine.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 138,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 13
+      },
+      "dependencies": [
+        "main.py",
+        "mcp/execution/execution_engine.py",
+        "mcp/execution/execution_router.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 67,
+      "wave": 3,
+      "original_path": "archive/mcp/capability/capability_graph.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 144,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 10
+      },
+      "dependencies": [
+        "mcp/capability/capability_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 68,
+      "wave": 3,
+      "original_path": "archive/mcp/capability/capability_profile.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 105,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 5
+      },
+      "dependencies": [
+        "mcp/capability/capability_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 69,
+      "wave": 3,
+      "original_path": "archive/mcp/capability/prompt_catalog.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 41,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 5
+      },
+      "dependencies": [
+        "mcp/capability/capability_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 70,
+      "wave": 3,
+      "original_path": "archive/mcp/capability/resource_catalog.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 41,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 5
+      },
+      "dependencies": [
+        "mcp/capability/capability_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 71,
+      "wave": 3,
+      "original_path": "archive/mcp/capability/tool_catalog.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 84,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 10
+      },
+      "dependencies": [
+        "mcp/capability/capability_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 72,
+      "wave": 2,
+      "original_path": "archive/mcp/client/connection_manager.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 186,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 10
+      },
+      "dependencies": [
+        "main.py",
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 73,
+      "wave": 3,
+      "original_path": "archive/mcp/transport/transport_factory.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 77,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 1
+      },
+      "dependencies": [
+        "mcp/client/connection_manager.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 74,
+      "wave": 4,
+      "original_path": "archive/mcp/transport/http_transport.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 151,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 7
+      },
+      "dependencies": [
+        "mcp/transport/transport_factory.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 75,
+      "wave": 4,
+      "original_path": "archive/mcp/transport/websocket_transport.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 130,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 7
+      },
+      "dependencies": [
+        "mcp/transport/transport_factory.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 76,
+      "wave": 5,
+      "original_path": "archive/mcp/transport/stdio_transport.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 186,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 10
+      },
+      "dependencies": [
+        "mcp/client/connection_manager.py",
+        "mcp/transport/http_transport.py",
+        "mcp/transport/transport_factory.py",
+        "mcp/transport/websocket_transport.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 77,
+      "wave": 2,
+      "original_path": "archive/mcp/client/timeout_manager.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 78,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 6
+      },
+      "dependencies": [
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 78,
+      "wave": 2,
+      "original_path": "archive/mcp/discovery/config_discovery.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 107,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 3
+      },
+      "dependencies": [
+        "mcp/discovery/discovery_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 79,
+      "wave": 2,
+      "original_path": "archive/mcp/discovery/discovery_engine.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 114,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 6
+      },
+      "dependencies": [
+        "main.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 80,
+      "wave": 3,
+      "original_path": "archive/mcp/discovery/filesystem_discovery.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 158,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 4
+      },
+      "dependencies": [
+        "mcp/discovery/discovery_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 81,
+      "wave": 3,
+      "original_path": "archive/mcp/discovery/manual_registration.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 48,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 4
+      },
+      "dependencies": [
+        "mcp/discovery/discovery_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 82,
+      "wave": 3,
+      "original_path": "archive/mcp/discovery/runtime_discovery.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 54,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 3
+      },
+      "dependencies": [
+        "mcp/discovery/discovery_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 83,
+      "wave": 3,
+      "original_path": "archive/mcp/events/event_publisher.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 182,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 16
+      },
+      "dependencies": [
+        "main.py",
+        "mcp/client/capability_negotiator.py",
+        "mcp/client/connection_manager.py",
+        "mcp/discovery/discovery_engine.py",
+        "mcp/execution/execution_engine.py",
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 84,
+      "wave": 4,
+      "original_path": "archive/mcp/events/event_schemas.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 71,
+      "symbol_counts": {
+        "classes": 6,
+        "functions": 0
+      },
+      "dependencies": [
+        "mcp/client/connection_manager.py",
+        "mcp/discovery/config_discovery.py",
+        "mcp/discovery/discovery_engine.py",
+        "mcp/discovery/filesystem_discovery.py",
+        "mcp/discovery/manual_registration.py",
+        "mcp/discovery/runtime_discovery.py",
+        "mcp/events/event_publisher.py",
+        "mcp/events/mcp_events.py",
+        "mcp/execution/execution_engine.py",
+        "mcp/execution/execution_queue.py",
+        "mcp/execution/execution_request.py",
+        "mcp/execution/mcp_cli.py",
+        "mcp/verification/capability_verifier.py",
+        "mcp/verification/content_safety_verifier.py",
+        "mcp/verification/schema_verifier.py",
+        "mcp/verification/size_verifier.py",
+        "mcp/verification/timeout_verifier.py",
+        "mcp/verification/trust_verifier.py",
+        "mcp/verification/verification_pipeline.py",
+        "mcp/verification/verification_result.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 85,
+      "wave": 4,
+      "original_path": "archive/mcp/events/mcp_events.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 175,
+      "symbol_counts": {
+        "classes": 19,
+        "functions": 0
+      },
+      "dependencies": [
+        "mcp/client/capability_negotiator.py",
+        "mcp/events/event_publisher.py",
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 86,
+      "wave": 2,
+      "original_path": "archive/mcp/execution/execution_engine.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 289,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 4
+      },
+      "dependencies": [
+        "main.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 87,
+      "wave": 3,
+      "original_path": "archive/mcp/execution/execution_queue.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 117,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 13
+      },
+      "dependencies": [
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 88,
+      "wave": 3,
+      "original_path": "archive/mcp/execution/execution_result.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 33,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 0
+      },
+      "dependencies": [
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 89,
+      "wave": 3,
+      "original_path": "archive/mcp/execution/execution_router.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 92,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 4
+      },
+      "dependencies": [
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 90,
+      "wave": 6,
+      "original_path": "archive/mcp/transport/base_transport.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 64,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 7
+      },
+      "dependencies": [
+        "mcp/client/capability_negotiator.py",
+        "mcp/client/connection_manager.py",
+        "mcp/execution/execution_engine.py",
+        "mcp/transport/http_transport.py",
+        "mcp/transport/stdio_transport.py",
+        "mcp/transport/transport_factory.py",
+        "mcp/transport/websocket_transport.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 91,
+      "wave": 4,
+      "original_path": "archive/mcp/execution/execution_request.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 33,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 1
+      },
+      "dependencies": [
+        "mcp/execution/execution_engine.py",
+        "mcp/execution/execution_queue.py",
+        "mcp/execution/execution_router.py",
+        "mcp/governance/audit_logger.py",
+        "mcp/governance/governance_layer.py",
+        "mcp/governance/restriction_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 92,
+      "wave": 2,
+      "original_path": "archive/mcp/execution/mcp_cli.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 342,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 18
+      },
+      "dependencies": [
+        "main.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 93,
+      "wave": 2,
+      "original_path": "archive/mcp/governance/allowlist_manager.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 79,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 9
+      },
+      "dependencies": [
+        "mcp/governance/governance_layer.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 94,
+      "wave": 2,
+      "original_path": "archive/mcp/governance/audit_logger.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/audit/log.ts",
+      "target_symbol": "AuditLog",
+      "source_loc": 109,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 4
+      },
+      "dependencies": [
+        "mcp/governance/governance_layer.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 95,
+      "wave": 3,
+      "original_path": "archive/mcp/governance/governance_layer.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 259,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 6
+      },
+      "dependencies": [
+        "main.py",
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 96,
+      "wave": 4,
+      "original_path": "archive/mcp/governance/permission_model.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 174,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 7
+      },
+      "dependencies": [
+        "mcp/governance/governance_layer.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 97,
+      "wave": 4,
+      "original_path": "archive/mcp/governance/restriction_engine.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 88,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 5
+      },
+      "dependencies": [
+        "mcp/governance/governance_layer.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 98,
+      "wave": 3,
+      "original_path": "archive/mcp/registry/health_tracker.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 181,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 11
+      },
+      "dependencies": [
+        "main.py",
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 99,
+      "wave": 5,
+      "original_path": "archive/mcp/registry/models.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 128,
+      "symbol_counts": {
+        "classes": 12,
+        "functions": 0
+      },
+      "dependencies": [
+        "mcp/capability/capability_engine.py",
+        "mcp/capability/capability_graph.py",
+        "mcp/capability/capability_profile.py",
+        "mcp/capability/prompt_catalog.py",
+        "mcp/capability/resource_catalog.py",
+        "mcp/capability/tool_catalog.py",
+        "mcp/client/capability_negotiator.py",
+        "mcp/client/connection_manager.py",
+        "mcp/client/session_manager.py",
+        "mcp/discovery/config_discovery.py",
+        "mcp/discovery/filesystem_discovery.py",
+        "mcp/discovery/manual_registration.py",
+        "mcp/discovery/runtime_discovery.py",
+        "mcp/execution/execution_engine.py",
+        "mcp/execution/execution_request.py",
+        "mcp/execution/execution_router.py",
+        "mcp/execution/mcp_cli.py",
+        "mcp/governance/governance_layer.py",
+        "mcp/registry/health_tracker.py",
+        "mcp/registry/registry_store.py",
+        "mcp/registry/server_registry.py",
+        "mcp/registry/trust_manager.py",
+        "mcp/transport/transport_factory.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 100,
+      "wave": 2,
+      "original_path": "archive/mcp/registry/registry_store.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 259,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 10
+      },
+      "dependencies": [
+        "mcp/registry/server_registry.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 101,
+      "wave": 4,
+      "original_path": "archive/mcp/registry/server_registry.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 193,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 15
+      },
+      "dependencies": [
+        "main.py",
+        "mcp/capability/capability_engine.py",
+        "mcp/discovery/config_discovery.py",
+        "mcp/discovery/discovery_engine.py",
+        "mcp/discovery/filesystem_discovery.py",
+        "mcp/discovery/manual_registration.py",
+        "mcp/discovery/runtime_discovery.py",
+        "mcp/execution/execution_engine.py",
+        "mcp/execution/execution_router.py",
+        "mcp/governance/governance_layer.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 102,
+      "wave": 2,
+      "original_path": "archive/mcp/registry/trust_manager.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 159,
+      "symbol_counts": {
+        "classes": 3,
+        "functions": 7
+      },
+      "dependencies": [
+        "main.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 103,
+      "wave": 2,
+      "original_path": "archive/mcp/verification/capability_verifier.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 49,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 1
+      },
+      "dependencies": [
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 104,
+      "wave": 2,
+      "original_path": "archive/mcp/verification/content_safety_verifier.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 51,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 1
+      },
+      "dependencies": [
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 105,
+      "wave": 2,
+      "original_path": "archive/mcp/verification/schema_verifier.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 67,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 1
+      },
+      "dependencies": [
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 106,
+      "wave": 2,
+      "original_path": "archive/mcp/verification/size_verifier.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 48,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 2
+      },
+      "dependencies": [
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 107,
+      "wave": 2,
+      "original_path": "archive/mcp/verification/timeout_verifier.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 63,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 1
+      },
+      "dependencies": [
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 108,
+      "wave": 2,
+      "original_path": "archive/mcp/verification/trust_verifier.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 54,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 1
+      },
+      "dependencies": [
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 109,
+      "wave": 3,
+      "original_path": "archive/mcp/verification/verification_pipeline.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 150,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 4
+      },
+      "dependencies": [
+        "main.py",
+        "mcp/execution/execution_engine.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 110,
+      "wave": 4,
+      "original_path": "archive/mcp/verification/verification_result.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/mcp/manager.ts",
+      "target_symbol": "McpManager",
+      "source_loc": 22,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 0
+      },
+      "dependencies": [
+        "mcp/verification/capability_verifier.py",
+        "mcp/verification/content_safety_verifier.py",
+        "mcp/verification/schema_verifier.py",
+        "mcp/verification/size_verifier.py",
+        "mcp/verification/timeout_verifier.py",
+        "mcp/verification/trust_verifier.py",
+        "mcp/verification/verification_pipeline.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 111,
+      "wave": 4,
+      "original_path": "archive/auth/cred_storage.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/security/credentials/service.ts",
+      "target_symbol": "CredentialService",
+      "source_loc": 614,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 28
+      },
+      "dependencies": [
+        "core/provider_runtime.py",
+        "core/startup.py",
+        "web/web_bridge.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 112,
+      "wave": 5,
+      "original_path": "archive/auth/types.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/intelligence/providers/types.ts",
+      "target_symbol": "ProviderGateway",
+      "source_loc": 705,
+      "symbol_counts": {
+        "classes": 35,
+        "functions": 8
+      },
+      "dependencies": [
+        "main.py",
+        "auth/cred_storage.py",
+        "auth/monitoring/health.py",
+        "auth/providers/google.py",
+        "cli/boot.py",
+        "core/provider_runtime.py",
+        "core/startup.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 113,
+      "wave": 2,
+      "original_path": "archive/cli/app.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/cli/entry.ts",
+      "target_symbol": "main",
+      "source_loc": 355,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 13
+      },
+      "dependencies": [
+        "main.py",
+        "cli/__main__.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 114,
+      "wave": 3,
+      "original_path": "archive/cli/commands.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/cli/entry.ts",
+      "target_symbol": "main",
+      "source_loc": 446,
+      "symbol_counts": {
+        "classes": 1,
+        "functions": 13
+      },
+      "dependencies": [
+        "cli/app.py",
+        "cli/__main__.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 115,
+      "wave": 3,
+      "original_path": "archive/cli/session.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/cli/entry.ts",
+      "target_symbol": "main",
+      "source_loc": 229,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 14
+      },
+      "dependencies": [
+        "cli/app.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 116,
+      "wave": 4,
+      "original_path": "archive/cli/update_check.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/cli/entry.ts",
+      "target_symbol": "main",
+      "source_loc": 144,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 8
+      },
+      "dependencies": [
+        "cli/app.py",
+        "cli/commands.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 117,
+      "wave": 5,
+      "original_path": "archive/cli/version.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/cli/entry.ts",
+      "target_symbol": "--version",
+      "source_loc": 40,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 2
+      },
+      "dependencies": [
+        "cli/commands.py",
+        "cli/update_check.py",
+        "cli/__main__.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 118,
+      "wave": 2,
+      "original_path": "archive/web/server.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/bridge/server.ts",
+      "target_symbol": "LocalBridgeServer",
+      "source_loc": 156,
+      "symbol_counts": {
+        "classes": 0,
+        "functions": 3
+      },
+      "dependencies": [
+        "main.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 119,
+      "wave": 3,
+      "original_path": "archive/web/web_bridge.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/runtime/bridge/server.ts",
+      "target_symbol": "LocalBridgeServer",
+      "source_loc": 1068,
+      "symbol_counts": {
+        "classes": 2,
+        "functions": 41
+      },
+      "dependencies": [
+        "web/server.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    },
+    {
+      "order": 120,
+      "wave": 4,
+      "original_path": "archive/main.py",
+      "status": "PARTIALLY_PORTED",
+      "target_path": "src/app.ts",
+      "target_symbol": "AelvoApplication",
+      "source_loc": 1796,
+      "symbol_counts": {
+        "classes": 4,
+        "functions": 60
+      },
+      "dependencies": [
+        "cli/boot.py",
+        "cli/__main__.py",
+        "web/web_bridge.py"
+      ],
+      "next_action": "Complete the missing behavior against the archived source and add a regression test.",
+      "blocker": null
+    }
+  ]
+}
