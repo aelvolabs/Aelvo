@@ -72,3 +72,4 @@ aelvo_bench/
 
 # Archived legacy Python implementation (local reference only)
 /archive/
+AELVO*.md
