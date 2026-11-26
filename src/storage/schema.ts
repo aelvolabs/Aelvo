@@ -168,4 +168,17 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX recovery_checkpoints_scope_idx ON recovery_checkpoints(scope_id, created_at);
     `,
   },
+  {
+    version: 5,
+    name: "credential_lifecycle",
+    sql: `
+      ALTER TABLE credential_metadata ADD COLUMN credential_type TEXT NOT NULL DEFAULT 'api_key';
+      ALTER TABLE credential_metadata ADD COLUMN label TEXT NOT NULL DEFAULT '';
+      ALTER TABLE credential_metadata ADD COLUMN created_at TEXT NOT NULL DEFAULT '';
+      ALTER TABLE credential_metadata ADD COLUMN last_used_at TEXT;
+      ALTER TABLE credential_metadata ADD COLUMN usage_count INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE credential_metadata ADD COLUMN expires_at TEXT;
+      ALTER TABLE credential_metadata ADD COLUMN is_valid INTEGER NOT NULL DEFAULT 1;
+    `,
+  },
 ];

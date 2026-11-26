@@ -78,19 +78,43 @@ export async function runDiagnostics(
     detail: fts === undefined ? "FTS5 index missing; search falls back to LIKE" : "FTS5 index present",
   });
 
+  const hasProviderCredential = app.providerCredentialSource !== "none";
   checks.push({
     name: "provider_config",
-    status: app.config.apiKey === undefined || app.config.model === undefined ? "fail" : "ok",
+    status: !hasProviderCredential || app.config.model === undefined ? "fail" : "ok",
     detail:
-      app.config.apiKey === undefined
-        ? "No API key in the environment"
+      !hasProviderCredential
+        ? "No provider API key in the environment or credential store"
         : app.config.model === undefined
           ? "AELVO_MODEL is not set"
-          : `Model ${app.config.model} with a configured key`,
-    remediation: "Set GEMINI_API_KEY (or GOOGLE_API_KEY) and AELVO_MODEL",
+          : `Model ${app.config.model}; key from ${app.providerCredentialSource}`,
+    remediation:
+      "Set AELVO_MODEL and provide GEMINI_API_KEY/GOOGLE_API_KEY, or run `aelvo credential import-env`",
+  });
+
+  const liveModel = app.config.liveModel ?? app.config.model;
+  checks.push({
+    name: "live_config",
+    status: liveModel === undefined ? "warn" : "ok",
+    detail:
+      liveModel === undefined
+        ? "AELVO_LIVE_MODEL is not set; app.live cannot create a session"
+        : `Live model ${liveModel}; connection is not probed by doctor. Run \`aelvo probe-live\` for a real session check`,
+    ...(liveModel === undefined
+      ? { remediation: "Set AELVO_LIVE_MODEL to a Live-capable Gemini model" }
+      : {}),
   });
 
   if (app.gateway instanceof GoogleGateway) {
+    const caps = app.gateway.capabilities();
+    checks.push({
+      name: "provider_capabilities",
+      status: caps.knownModel === true ? "ok" : "unverified",
+      detail:
+        caps.knownModel === true
+          ? `Model ${app.gateway.model} (${caps.source ?? "catalog"}): streaming=${String(caps.streaming)}, tools=${String(caps.functionCalling)}, structured=${String(caps.structuredOutput ?? "unknown")}, live=${String(caps.liveSession)}`
+          : `Model ${app.gateway.model} capabilities are unknown locally; run \`aelvo doctor --network\` to query Gemini metadata`,
+    });
     if (options.network === true) {
       try {
         const probe = await app.gateway.probe();
@@ -137,14 +161,23 @@ export async function runDiagnostics(
     });
   }
 
-  const credentialBackend = process.platform === "win32" ? "windows-dpapi" : process.platform === "darwin" ? "macos-keychain" : "linux-secret-service";
+  const credentialBackendAvailable = await app.credentials.backendAvailable();
   checks.push({
     name: "credential_backend",
-    status: process.platform === "win32" ? "ok" : "unverified",
-    detail:
-      process.platform === "win32"
-        ? `Credentials stored via ${credentialBackend} under the data directory`
-        : `${credentialBackend} is the configured backend; not exercised by this check`,
+    status: credentialBackendAvailable ? "ok" : "fail",
+    detail: credentialBackendAvailable
+      ? `${app.credentials.backendKind} secure storage is available`
+      : `${app.credentials.backendKind} secure storage is unavailable; plaintext fallback is disabled`,
+    ...(credentialBackendAvailable
+      ? {}
+      : {
+          remediation:
+            process.platform === "win32"
+              ? "Ensure PowerShell is available and the current-user DPAPI profile is accessible"
+              : process.platform === "darwin"
+                ? "Ensure /usr/bin/security is available"
+                : "Install libsecret-tools (`secret-tool`) and a Secret Service session",
+        }),
   });
 
   const mcp = app.mcp.status();

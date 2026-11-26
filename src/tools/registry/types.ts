@@ -1,11 +1,13 @@
 import type { z } from "zod";
-import type { Capability, ToolOutcome, VerificationResult } from "../../shared/contracts/index.js";
+import type { Capability, RequestOrigin, ToolOutcome, VerificationResult } from "../../shared/contracts/index.js";
 
 export interface ToolContext {
   runId: string;
   sessionId: string;
   signal: AbortSignal;
   userInitiated: boolean;
+  origin?: RequestOrigin;
+  taskId?: string;
 }
 
 export interface ToolDefinition<Input> {

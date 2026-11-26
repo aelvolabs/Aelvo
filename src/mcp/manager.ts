@@ -4,9 +4,33 @@ import { z } from "zod";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { AelvoError } from "../shared/errors/index.js";
+import { tagUntrustedData } from "../security/untrusted.js";
 import { defineTool } from "../tools/registry/types.js";
 import type { ToolRegistry } from "../tools/registry/registry.js";
 import type { Logger } from "../observability/logger.js";
+
+const BLOCKED_CHILD_ENV_KEYS =
+  /^(GEMINI_API_KEY|GOOGLE_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|AELVO_BRIDGE_TOKEN|.*(SECRET|TOKEN|PASSWORD|API_KEY).*)$/i;
+
+/**
+ * Strip provider secrets and token-bearing variables before spawning external
+ * MCP server processes unless the server configuration explicitly supplies them.
+ */
+export function buildSafeMcpEnv(
+  baseEnv: NodeJS.ProcessEnv = process.env,
+  explicitEnv: Record<string, string> = {},
+): Record<string, string> {
+  const safe: Record<string, string> = {};
+  for (const [key, value] of Object.entries(baseEnv)) {
+    if (value === undefined) continue;
+    if (BLOCKED_CHILD_ENV_KEYS.test(key)) continue;
+    safe[key] = value;
+  }
+  for (const [key, value] of Object.entries(explicitEnv)) {
+    safe[key] = value;
+  }
+  return safe;
+}
 
 const ServerConfigSchema = z.object({
   command: z.string().min(1),
@@ -84,7 +108,7 @@ export class McpManager {
     const transport = new StdioClientTransport({
       command: config.command,
       args: config.args ?? [],
-      env: { ...process.env, ...(config.env ?? {}) } as Record<string, string>,
+      env: buildSafeMcpEnv(process.env, config.env ?? {}),
       stderr: "pipe",
     });
     const client = new Client({ name: "aelvo", version: "3.0.0" }, { capabilities: {} });
@@ -153,13 +177,26 @@ export class McpManager {
               .join("\n")
               .slice(0, 64_000);
             const isError = result.isError === true;
+            const tagged = tagUntrustedData(text, "mcp", `${server.name}/${toolName}`);
             return {
               summary: isError ? `MCP tool ${toolName} returned an error` : `MCP tool ${toolName} completed`,
-              data: { text, isError, structured: result.structuredContent ?? null },
+              data: {
+                text,
+                isError,
+                structured: result.structuredContent ?? null,
+                provenance: tagged.provenance,
+              },
               evidence: [
                 {
                   kind: "external_result",
-                  detail: { server: server.name, tool: toolName, isError, bytes: text.length },
+                  detail: {
+                    server: server.name,
+                    tool: toolName,
+                    isError,
+                    bytes: text.length,
+                    trustLevel: tagged.provenance.trustLevel,
+                    flaggedSignals: tagged.provenance.flaggedSignals,
+                  },
                 },
               ],
             };

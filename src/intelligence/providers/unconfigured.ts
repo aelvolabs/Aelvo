@@ -18,7 +18,17 @@ export class UnconfiguredGateway implements ProviderGateway {
   readonly model = "";
 
   capabilities(): ProviderCapabilities {
-    return { streaming: false, functionCalling: false, nativeAudio: false, liveSession: false };
+    return {
+      streaming: false,
+      functionCalling: false,
+      nativeAudio: false,
+      liveSession: false,
+      structuredOutput: false,
+      multimodalInput: false,
+      thinking: false,
+      knownModel: false,
+      source: "unknown",
+    };
   }
 
   private unavailable(): AelvoError {

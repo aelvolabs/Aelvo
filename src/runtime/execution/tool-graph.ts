@@ -64,13 +64,14 @@ export class ToolGraphExecutor {
     calls: ToolCall[],
     context: ToolContext,
     hooks: ToolGraphHooks = {},
+    signalsByCall: Record<string, AbortSignal> = {},
   ): Promise<ToolExecutionRecord[] | undefined> {
     if (calls.length < 2) return undefined;
     if (new Set(calls.map((call) => call.id)).size !== calls.length) return undefined;
 
     const previews: ToolPreview[] = [];
     for (const call of calls) {
-      const preview = this.executor.preview(call);
+      const preview = this.executor.preview(call, context);
       if (preview === undefined || preview.decision.verdict !== "allow") return undefined;
       previews.push(preview);
     }
@@ -112,9 +113,10 @@ export class ToolGraphExecutor {
         const call = calls.find((candidate) => candidate.id === node.id);
         if (call === undefined) throw new Error(`Unknown tool call node ${node.id}`);
         hooks.onStarted?.(call);
+        const callSignal = signalsByCall[call.id];
         const record = await this.executor.execute(
           { id: call.id, name: call.name, arguments: call.arguments },
-          context,
+          callSignal === undefined ? context : { ...context, signal: callSignal },
         );
         hooks.onFinished?.(record);
         if (record.status !== "succeeded") {

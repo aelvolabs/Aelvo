@@ -2,6 +2,8 @@ import type { Db } from "../storage/db.js";
 import { newId, nowIso } from "../shared/ids.js";
 import { AelvoError } from "../shared/errors/index.js";
 import type { TaskRecord, TaskService } from "../tasks/service.js";
+import type { PolicyService } from "../security/policies/policy.js";
+import type { AuditLog } from "../security/audit/log.js";
 
 export interface ScheduleRecord {
   id: string;
@@ -38,6 +40,11 @@ function toRecord(row: ScheduleRow): ScheduleRecord {
   };
 }
 
+export interface SchedulerOptions {
+  policy?: PolicyService;
+  audit?: AuditLog;
+}
+
 /**
  * Minimal durable scheduler for reminders and recurring workflows. It creates
  * durable tasks; it never executes work itself, so every scheduled action goes
@@ -46,10 +53,14 @@ function toRecord(row: ScheduleRow): ScheduleRecord {
 export class Scheduler {
   private readonly db: Db;
   private readonly tasks: TaskService;
+  private readonly policy: PolicyService | undefined;
+  private readonly audit: AuditLog | undefined;
 
-  constructor(db: Db, tasks: TaskService) {
+  constructor(db: Db, tasks: TaskService, options: SchedulerOptions = {}) {
     this.db = db;
     this.tasks = tasks;
+    this.policy = options.policy;
+    this.audit = options.audit;
   }
 
   add(input: { taskKind: string; payload?: Record<string, unknown>; runAt: string; everySeconds?: number }): ScheduleRecord {
@@ -89,8 +100,20 @@ export class Scheduler {
     return toRecord(row);
   }
 
-  /** Create tasks for everything due. Idempotent per schedule occurrence. */
+  /** Create tasks for everything due. Suspended while emergency stop is active. */
   tick(now = new Date()): TaskRecord[] {
+    if (this.policy?.isEmergencyStopActive()) {
+      this.audit?.record({
+        origin: "task",
+        actor: "system",
+        action: "schedule.tick",
+        capability: "schedule",
+        decision: "deny",
+        decisionReason: "Emergency stop is active; scheduled task dispatch suspended",
+      });
+      return [];
+    }
+
     const due = this.db.all<ScheduleRow>(
       "SELECT * FROM schedules WHERE enabled = 1 AND next_run_at <= ? ORDER BY next_run_at LIMIT 100",
       [now.toISOString()],

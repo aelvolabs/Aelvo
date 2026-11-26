@@ -9,7 +9,14 @@ import { assertSafePath, type PathPolicy } from "./security/paths.js";
 import { PolicyService } from "./security/policies/policy.js";
 import { ApprovalService } from "./security/approvals/service.js";
 import { AuditLog } from "./security/audit/log.js";
+import { EmergencyStopController } from "./security/emergency.js";
 import { createPlatformBackend, CredentialService } from "./security/credentials/service.js";
+import type { CredentialBackend } from "./security/credentials/backends.js";
+import {
+  GOOGLE_API_KEY_CREDENTIAL,
+  resolveGoogleApiKey,
+  type ProviderCredentialSource,
+} from "./security/credentials/provider.js";
 import { SandboxBridge } from "./security/sandbox/index.js";
 import { ToolRegistry } from "./tools/registry/registry.js";
 import { createFilesystemTools } from "./tools/filesystem/tools.js";
@@ -23,6 +30,8 @@ import { RunVerifier } from "./runtime/verification/verifier.js";
 import { ContextBuilder } from "./intelligence/context/context-builder.js";
 import { RunCoordinator, type RunHooks, type RunResult } from "./runtime/coordinator/run-coordinator.js";
 import { GoogleGateway } from "./intelligence/providers/google/gateway.js";
+import { GoogleLiveTransport, type LiveTransport } from "./intelligence/providers/google/live/transport.js";
+import { LiveSessionManager } from "./intelligence/providers/google/live/session.js";
 import { UnconfiguredGateway } from "./intelligence/providers/unconfigured.js";
 import type { ProviderGateway } from "./intelligence/providers/types.js";
 import { McpManager } from "./mcp/manager.js";
@@ -32,11 +41,18 @@ import { RecoveryManager } from "./runtime/recovery/manager.js";
 import type { RuntimeEvent, RuntimeRequest } from "./shared/contracts/index.js";
 import { AelvoError } from "./shared/errors/index.js";
 
+/** Bound every production provider request so a stalled network cannot hang a CLI/app. */
+const PROVIDER_REQUEST_TIMEOUT_MS = 60_000;
+
 export interface CreateApplicationOptions {
   config: AelvoConfig;
   logger?: Logger;
   /** Injected by tests; production builds choose from configuration. */
   gateway?: ProviderGateway;
+  /** Injected by tests; production uses the platform secure backend. */
+  credentialBackend?: CredentialBackend;
+  /** Injected by deterministic tests; production uses the official Google SDK. */
+  liveTransport?: LiveTransport;
   packageRoot?: string;
 }
 
@@ -53,7 +69,9 @@ export class AelvoApplication {
   readonly policy: PolicyService;
   readonly approvals: ApprovalService;
   readonly audit: AuditLog;
+  readonly emergencyStop: EmergencyStopController;
   readonly credentials: CredentialService;
+  private _providerCredentialSource: ProviderCredentialSource;
   readonly sandbox: SandboxBridge;
   readonly registry: ToolRegistry;
   readonly executor: ToolExecutor;
@@ -65,7 +83,9 @@ export class AelvoApplication {
   readonly verifier: RunVerifier;
   readonly context: ContextBuilder;
   readonly coordinator: RunCoordinator;
-  readonly gateway: ProviderGateway;
+  private _gateway: ProviderGateway;
+  private readonly hasInjectedGateway: boolean;
+  readonly live: LiveSessionManager;
   readonly mcp: McpManager;
   readonly taskRunner: TaskRunner;
   readonly checkpoints: CheckpointStore;
@@ -73,10 +93,22 @@ export class AelvoApplication {
   readonly metrics: RuntimeMetrics;
   readonly health: HealthMonitor;
 
+  get providerCredentialSource(): ProviderCredentialSource {
+    return this._providerCredentialSource;
+  }
+
+  get gateway(): ProviderGateway {
+    return this._gateway;
+  }
+
   private constructor(options: CreateApplicationOptions, parts: {
     logger: Logger;
     db: Db;
+    metrics: RuntimeMetrics;
     gateway: ProviderGateway;
+    hasInjectedGateway: boolean;
+    credentials: CredentialService;
+    providerCredentialSource: ProviderCredentialSource;
   }) {
     this.config = options.config;
     this.logger = parts.logger;
@@ -99,10 +131,13 @@ export class AelvoApplication {
     this.approvals = new ApprovalService(this.config.approvals.ttlSeconds);
     this.policy = new PolicyService({
       paths: this.paths,
+      autonomy: this.config.security?.autonomy ?? "balanced",
       allowProcessExec: this.config.tools.allowProcessExec,
       allowNetwork: this.config.tools.allowNetwork,
     });
-    this.credentials = new CredentialService(this.db, createPlatformBackend(this.config.dataDir));
+    this.credentials = parts.credentials;
+    this._providerCredentialSource = parts.providerCredentialSource;
+    this.hasInjectedGateway = parts.hasInjectedGateway;
     this.sandbox = new SandboxBridge(options.packageRoot ?? process.cwd());
 
     this.registry = new ToolRegistry();
@@ -113,7 +148,7 @@ export class AelvoApplication {
       this.registry.register(tool);
     }
 
-    this.metrics = new RuntimeMetrics();
+    this.metrics = parts.metrics;
     this.executor = new ToolExecutor({
       registry: this.registry,
       policy: this.policy,
@@ -126,7 +161,7 @@ export class AelvoApplication {
 
     this.memory = new MemoryService(this.db);
     this.tasks = new TaskService(this.db);
-    this.scheduler = new Scheduler(this.db, this.tasks);
+    this.scheduler = new Scheduler(this.db, this.tasks, { policy: this.policy, audit: this.audit });
     this.runs = new RunStore(this.db);
     this.events = new EventBus();
     this.verifier = new RunVerifier();
@@ -134,20 +169,46 @@ export class AelvoApplication {
       memory: this.memory,
       workspaceRoot: this.config.workspaceRoot,
     });
-    this.gateway = parts.gateway;
+    this._gateway = parts.gateway;
     this.coordinator = new RunCoordinator({
-      gateway: this.gateway,
+      gateway: this._gateway,
       registry: this.registry,
       executor: this.executor,
       memory: this.memory,
       context: this.context,
       approvals: this.approvals,
+      policy: this.policy,
       tasks: this.tasks,
       runs: this.runs,
       events: this.events,
       verifier: this.verifier,
       logger: this.logger,
       maxSteps: this.config.runtime.maxRunSteps,
+    });
+    this.live = new LiveSessionManager({
+      model: this.config.liveModel ?? this.config.model ?? "",
+      transport: options.liveTransport ?? new GoogleLiveTransport(),
+      resolveApiKey: async () =>
+        (await resolveGoogleApiKey(this.credentials, this.config.apiKey)).apiKey,
+      tools: () => this.registry.descriptors(),
+      toolRuntime: this.coordinator,
+      approvals: this.approvals,
+      isEmergencyStopActive: () => this.policy.isEmergencyStopActive(),
+      memory: this.memory,
+      context: this.context,
+      metrics: this.metrics,
+      logger: this.logger,
+      onRuntimeEvent: (event) => this.events.publish(event),
+      ...(this.config.liveVoice === undefined ? {} : { defaultVoiceName: this.config.liveVoice }),
+    });
+    this.emergencyStop = new EmergencyStopController({
+      policy: this.policy,
+      approvals: this.approvals,
+      audit: this.audit,
+      cancelAllRuns: () => this.coordinator.cancelAll("Emergency stop activated"),
+      invalidateLiveSessions: (reason) => this.live.invalidateAll(reason),
+      invalidateToolCache: () => this.executor.invalidateCache(),
+      publishEvent: (event) => this.events.publish(event),
     });
     this.mcp = new McpManager({ registry: this.registry, logger: this.logger });
     this.checkpoints = new CheckpointStore(this.db);
@@ -157,6 +218,8 @@ export class AelvoApplication {
       coordinator: this.coordinator,
       logger: this.logger,
       recovery: this.recovery,
+      policy: this.policy,
+      audit: this.audit,
     });
     this.health = new HealthMonitor();
     this.health.register("storage", () => {
@@ -169,12 +232,58 @@ export class AelvoApplication {
     });
     this.health.register("provider", () => ({
       healthy: this.gateway.name !== "unconfigured",
-      detail: this.gateway.name === "unconfigured" ? "No live provider configured" : `${this.gateway.name}/${this.gateway.model}`,
+      detail:
+        this.gateway.name === "unconfigured"
+          ? "No provider configured"
+          : `${this.gateway.name}/${this.gateway.model} (configured locally; network not probed)`,
     }));
+
+    this.credentials.onChange(async (name) => {
+      if (name !== GOOGLE_API_KEY_CREDENTIAL) return;
+      // Revoked/rotated credentials must never leave an authenticated Live
+      // connection running on stale material. Reconnect creates a replacement.
+      this.live.invalidateAll("Google credential changed");
+      if (!this.hasInjectedGateway) await this.refreshProviderGateway();
+    });
+  }
+
+  private createGoogleGateway(initialApiKey: string, model: string): GoogleGateway {
+    return new GoogleGateway({
+      apiKey: initialApiKey,
+      credentialResolver: async () => (await resolveGoogleApiKey(this.credentials, this.config.apiKey)).apiKey,
+      model,
+      metrics: this.metrics,
+      logger: this.logger,
+      defaultTimeoutMs: PROVIDER_REQUEST_TIMEOUT_MS,
+    });
+  }
+
+  /** Re-resolve Google credentials cleanly when secrets are added, rotated, or deleted. */
+  async refreshProviderGateway(): Promise<void> {
+    if (this.hasInjectedGateway) return;
+    const resolved = await resolveGoogleApiKey(this.credentials, this.config.apiKey);
+    this._providerCredentialSource = resolved.source;
+
+    if (resolved.apiKey !== undefined && this.config.model !== undefined) {
+      if (this._gateway instanceof GoogleGateway) {
+        this._gateway.updateApiKey(resolved.apiKey);
+      } else {
+        this._gateway = this.createGoogleGateway(resolved.apiKey, this.config.model);
+        this.coordinator.setGateway(this._gateway);
+      }
+      return;
+    }
+
+    if (this._gateway instanceof GoogleGateway) {
+      this._gateway.invalidateClient();
+    }
+    this._gateway = new UnconfiguredGateway();
+    this.coordinator.setGateway(this._gateway);
   }
 
   static async create(options: CreateApplicationOptions): Promise<AelvoApplication> {
     const logger = options.logger ?? createLogger(options.config.logLevel);
+    const metrics = new RuntimeMetrics();
     mkdirSync(options.config.dataDir, { recursive: true });
     mkdirSync(options.config.workspaceRoot, { recursive: true });
     const db = openDatabase(options.config.dbPath);
@@ -185,16 +294,45 @@ export class AelvoApplication {
       throw new AelvoError("STORAGE_FAILED", "Database migration failed", { cause: error });
     }
 
+    const credentials = new CredentialService(
+      db,
+      options.credentialBackend ?? createPlatformBackend(options.config.dataDir),
+    );
+
     let gateway: ProviderGateway;
+    let providerCredentialSource: ProviderCredentialSource;
+    const hasInjectedGateway = options.gateway !== undefined;
     if (options.gateway !== undefined) {
       gateway = options.gateway;
-    } else if (options.config.apiKey !== undefined && options.config.model !== undefined) {
-      gateway = new GoogleGateway({ apiKey: options.config.apiKey, model: options.config.model });
+      providerCredentialSource = "injected";
     } else {
-      gateway = new UnconfiguredGateway();
+      const resolved = await resolveGoogleApiKey(credentials, options.config.apiKey);
+      providerCredentialSource = resolved.source;
+      if (resolved.detail !== undefined) {
+        logger.warn({ detail: resolved.detail }, "Provider credential unavailable; continuing unconfigured");
+      }
+      gateway =
+        resolved.apiKey !== undefined && options.config.model !== undefined
+          ? new GoogleGateway({
+              apiKey: resolved.apiKey,
+              credentialResolver: async () => (await resolveGoogleApiKey(credentials, options.config.apiKey)).apiKey,
+              model: options.config.model,
+              metrics,
+              logger,
+              defaultTimeoutMs: PROVIDER_REQUEST_TIMEOUT_MS,
+            })
+          : new UnconfiguredGateway();
     }
 
-    const app = new AelvoApplication(options, { logger, db, gateway });
+    const app = new AelvoApplication(options, {
+      logger,
+      db,
+      metrics,
+      gateway,
+      hasInjectedGateway,
+      credentials,
+      providerCredentialSource,
+    });
     const recovery = app.tasks.recover();
     if (recovery.interrupted > 0 || recovery.needingReconciliation > 0) {
       logger.warn(recovery, "Recovered interrupted task state from a previous process");
@@ -214,8 +352,20 @@ export class AelvoApplication {
     this.coordinator.cancel(runId);
   }
 
-  async resolveApproval(approvalId: string, approved: boolean): Promise<RunResult> {
-    return this.coordinator.resolveApproval(approvalId, approved);
+  async resolveApproval(
+    approvalId: string,
+    approved: boolean,
+    decidedBy: "user" | "cli" | "bridge" | "system" | "model" = "user",
+  ): Promise<RunResult> {
+    return this.coordinator.resolveApproval(approvalId, approved, decidedBy);
+  }
+
+  activateEmergencyStop(actor: "user" | "cli" | "bridge" | "system" | "model" = "user", reason?: string) {
+    return this.emergencyStop.activate(actor, reason);
+  }
+
+  resumeEmergencyStop(actor: "user" | "cli" | "bridge" | "system" | "model" = "user", reason?: string) {
+    return this.emergencyStop.resume(actor, reason);
   }
 
   searchMemory(query: string, limit = 10): ReturnType<MemoryService["search"]> {
@@ -234,6 +384,7 @@ export class AelvoApplication {
         name: provider.name,
         model: provider.model,
         configured: provider.name !== "unconfigured",
+        credentialSource: this.providerCredentialSource,
         capabilities: provider.capabilities(),
       },
       runs: this.runs.recent(10),
@@ -245,8 +396,10 @@ export class AelvoApplication {
       approvals: this.approvals.list(),
       mcp: this.mcp.status(),
       sandbox: this.sandbox.status(),
+      autonomy: this.policy.autonomy,
       emergencyStop: this.policy.isEmergencyStopActive(),
       activeRuns: this.coordinator.activeRuns(),
+      liveSessions: this.live.activeSessions(),
       recovery: this.recovery.stats(),
       metrics: this.metrics.summary(),
       health: { status: this.health.status(), checks: this.health.run() },
@@ -263,6 +416,7 @@ export class AelvoApplication {
   }
 
   close(): void {
+    this.live.close();
     void this.mcp.disconnectAll();
     this.db.close();
   }

@@ -1,6 +1,7 @@
 import { newId } from "../../shared/ids.js";
 import {
   type ApprovalRequest,
+  type RequestOrigin,
   type RunStatus,
   type RuntimeEvent,
   type RuntimeRequest,
@@ -8,6 +9,8 @@ import {
 } from "../../shared/contracts/index.js";
 import { AelvoError, asAelvoError, toPublicError } from "../../shared/errors/index.js";
 import type { ProviderFunctionCall, ProviderGateway, ProviderMessage } from "../../intelligence/providers/types.js";
+import type { ToolCall } from "../../shared/contracts/index.js";
+import type { ToolContext } from "../../tools/registry/types.js";
 import type { ContextBuilder } from "../../intelligence/context/context-builder.js";
 import type { MemoryService } from "../../memory/service.js";
 import type { ToolExecutor } from "../../tools/executor/executor.js";
@@ -17,6 +20,7 @@ import type { EventBus } from "../events/bus.js";
 import type { RunStore } from "../execution/run-store.js";
 import type { RunVerifier } from "../verification/verifier.js";
 import type { ApprovalService } from "../../security/approvals/service.js";
+import type { PolicyService } from "../../security/policies/policy.js";
 import type { TaskService } from "../../tasks/service.js";
 import { materializePlan, planFromRequest } from "../../planning/planner.js";
 import { ToolGraphExecutor } from "../execution/tool-graph.js";
@@ -29,6 +33,7 @@ export interface CoordinatorDeps {
   memory: MemoryService;
   context: ContextBuilder;
   approvals: ApprovalService;
+  policy?: PolicyService;
   tasks: TaskService;
   runs: RunStore;
   events: EventBus;
@@ -53,6 +58,8 @@ export interface RunHooks {
 interface PendingState {
   runId: string;
   sessionId: string;
+  origin: RequestOrigin;
+  taskId?: string;
   signal: AbortSignal;
   messages: ProviderMessage[];
   calls: ProviderFunctionCall[];
@@ -61,6 +68,7 @@ interface PendingState {
   text: string;
   /** Approval attached to the call at `cursor`, when resuming. */
   approvalId?: string;
+  approvalActor?: "user" | "cli" | "bridge" | "system" | "model";
   deniedCallId?: string;
 }
 
@@ -90,7 +98,82 @@ export class RunCoordinator {
     this.toolGraph = new ToolGraphExecutor(deps.executor);
   }
 
-  async run(request: RuntimeRequest, hooks: RunHooks = {}): Promise<RunResult> {
+  /** Replace the active provider gateway cleanly when credentials change at runtime. */
+  setGateway(gateway: ProviderGateway): void {
+    this.deps.gateway = gateway;
+  }
+
+  /**
+   * Execute externally-originated (Live/voice) function calls through the same
+   * registry, policy, approvals, executor, evidence and graph used by text
+   * runs. This is a narrow coordination entry point, not a second tool runtime.
+   */
+  async executeToolCalls(
+    calls: ToolCall[],
+    context: ToolContext,
+    options: {
+      approvalByCall?: Record<string, string>;
+      signalsByCall?: Record<string, AbortSignal>;
+      onStarted?: (call: ToolCall) => void;
+      onFinished?: (record: ToolExecutionRecord) => void;
+    } = {},
+  ): Promise<ToolExecutionRecord[]> {
+    if (calls.length === 0) return [];
+    const signals = options.signalsByCall ?? {};
+    const hasApproval = options.approvalByCall !== undefined && Object.keys(options.approvalByCall).length > 0;
+
+    if (calls.length >= 2 && !hasApproval) {
+      const batch = await this.toolGraph.execute(
+        calls,
+        context,
+        {
+          ...(options.onStarted === undefined ? {} : { onStarted: options.onStarted }),
+          ...(options.onFinished === undefined ? {} : { onFinished: options.onFinished }),
+        },
+        signals,
+      );
+      if (batch !== undefined) {
+        this.graphBatches += 1;
+        this.graphToolCalls += batch.length;
+        return batch;
+      }
+    }
+
+    const records: ToolExecutionRecord[] = [];
+    for (const call of calls) {
+      const callSignal = signals[call.id];
+      const callContext = callSignal === undefined ? context : { ...context, signal: callSignal };
+      options.onStarted?.(call);
+      const approvalId = options.approvalByCall?.[call.id];
+      try {
+        const record = await this.deps.executor.execute(
+          call,
+          callContext,
+          approvalId === undefined ? {} : { approvalId },
+        );
+        options.onFinished?.(record);
+        records.push(record);
+      } catch (error) {
+        const publicError = toPublicError(error);
+        const record: ToolExecutionRecord = {
+          call,
+          status: "failed",
+          error: { code: publicError.code, message: publicError.message },
+          durationMs: 0,
+          attempts: 0,
+        };
+        options.onFinished?.(record);
+        records.push(record);
+      }
+    }
+    return records;
+  }
+
+  async run(
+    request: RuntimeRequest,
+    hooks: RunHooks = {},
+    source: { origin?: RequestOrigin; taskId?: string } = {},
+  ): Promise<RunResult> {
     const { memory, runs, tasks } = this.deps;
     if (request.resumeRunId !== undefined) {
       // Pending run state and approvals are intentionally process-local, so a
@@ -101,6 +184,10 @@ export class RunCoordinator {
         { details: { resumeRunId: request.resumeRunId } },
       );
     }
+    if (this.deps.policy?.isEmergencyStopActive() === true) {
+      throw new AelvoError("EMERGENCY_STOP", "Emergency stop is active; new runs are suspended");
+    }
+    const origin: RequestOrigin = source.origin ?? "text";
     const sessionId = request.sessionId ?? memory.createSession().id;
     const session = memory.ensureSession(sessionId);
     memory.appendMessage(session.id, "user", request.input);
@@ -135,13 +222,14 @@ export class RunCoordinator {
       this.pending.set(runId, {
         runId,
         sessionId,
+        origin,
+        ...(source.taskId === undefined ? {} : { taskId: source.taskId }),
         signal: controller.signal,
         messages: built.messages,
         calls: [],
         cursor: 0,
         toolExecutions: [],
         text: "",
-        ...(this.deps.gateway.capabilities().streaming ? {} : {}),
       });
       return await this.advance(runId, built.system);
     } catch (error) {
@@ -152,7 +240,14 @@ export class RunCoordinator {
   }
 
   /** Approve or deny a blocked action and continue the same run. */
-  async resolveApproval(approvalId: string, approved: boolean): Promise<RunResult> {
+  async resolveApproval(
+    approvalId: string,
+    approved: boolean,
+    decidedBy: "user" | "cli" | "bridge" | "system" | "model" = "user",
+  ): Promise<RunResult> {
+    if (decidedBy === "model") {
+      throw new AelvoError("APPROVAL_INVALID", "Model output cannot approve or deny privileged actions");
+    }
     const waiting = this.waiting.get(approvalId);
     if (waiting === undefined) {
       throw new AelvoError("APPROVAL_INVALID", "No blocked run is waiting for this approval");
@@ -160,14 +255,19 @@ export class RunCoordinator {
     this.waiting.delete(approvalId);
     const state = this.pending.get(waiting.runId);
     if (state === undefined) {
-      this.deps.approvals.deny(approvalId);
+      this.deps.approvals.deny(approvalId, decidedBy);
       throw new AelvoError("APPROVAL_INVALID", "Run state is no longer available");
     }
     if (approved) {
-      this.deps.approvals.approve(approvalId);
+      if (this.deps.policy?.isEmergencyStopActive() === true) {
+        this.deps.approvals.revoke(approvalId, "Emergency stop active");
+        throw new AelvoError("EMERGENCY_STOP", "Emergency stop is active; approved execution cannot resume");
+      }
+      this.deps.approvals.approve(approvalId, decidedBy);
       state.approvalId = approvalId;
+      state.approvalActor = decidedBy;
     } else {
-      this.deps.approvals.deny(approvalId);
+      this.deps.approvals.deny(approvalId, decidedBy);
       const call = state.calls[state.cursor];
       if (call !== undefined) state.deniedCallId = call.id;
     }
@@ -183,6 +283,7 @@ export class RunCoordinator {
   cancel(runId: string): void {
     const controller = this.controllers.get(runId);
     if (controller !== undefined) controller.abort(new AelvoError("EXECUTION_ABORTED", "Run cancelled by user"));
+    this.deps.approvals.revokeByRun(runId, "Run cancelled");
     const run = this.deps.runs.get(runId);
     if (run !== undefined && (run.status === "running" || run.status === "waiting_for_approval")) {
       this.deps.runs.setStatus(runId, "cancelled");
@@ -192,6 +293,29 @@ export class RunCoordinator {
     for (const [approvalId, entry] of this.waiting) {
       if (entry.runId === runId) this.waiting.delete(approvalId);
     }
+  }
+
+  /** Cancel every active or waiting run (used by emergency stop). */
+  cancelAll(reason = "Emergency stop activated"): number {
+    const runIds = new Set<string>([...this.controllers.keys(), ...this.pending.keys()]);
+    for (const entry of this.waiting.values()) {
+      runIds.add(entry.runId);
+    }
+    let cancelled = 0;
+    for (const runId of runIds) {
+      const controller = this.controllers.get(runId);
+      if (controller !== undefined) controller.abort(new AelvoError("EXECUTION_ABORTED", reason));
+      this.deps.approvals.revokeByRun(runId, reason);
+      const run = this.deps.runs.get(runId);
+      if (run !== undefined && (run.status === "running" || run.status === "waiting_for_approval")) {
+        this.deps.runs.setStatus(runId, "cancelled");
+        this.emit(runId, { type: "run.cancelled", runId });
+      }
+      this.pending.delete(runId);
+      cancelled += 1;
+    }
+    this.waiting.clear();
+    return cancelled;
   }
 
   private async advance(runId: string, system: string): Promise<RunResult> {
@@ -236,6 +360,7 @@ export class RunCoordinator {
               id: call.id,
               name: call.name,
               args: call.args,
+              ...(call.thoughtSignature === undefined ? {} : { thoughtSignature: call.thoughtSignature }),
             })),
           ],
         });
@@ -248,7 +373,14 @@ export class RunCoordinator {
       ) {
         const batch = await this.toolGraph.execute(
           state.calls.map((call) => ({ id: call.id, name: call.name, arguments: call.args })),
-          { runId, sessionId: state.sessionId, signal: state.signal, userInitiated: false },
+          {
+            runId,
+            sessionId: state.sessionId,
+            signal: state.signal,
+            userInitiated: false,
+            origin: state.origin,
+            ...(state.taskId === undefined ? {} : { taskId: state.taskId }),
+          },
           {
             onStarted: (call) => {
               this.emit(runId, { type: "tool.started", runId, tool: call.name, callId: call.id });
@@ -306,12 +438,25 @@ export class RunCoordinator {
         }
 
         const approvalId = state.approvalId;
+        const approvalActor = state.approvalActor;
         delete state.approvalId;
+        delete state.approvalActor;
         this.emit(runId, { type: "tool.started", runId, tool: call.name, callId: call.id });
         const record = await this.deps.executor.execute(
           { id: call.id, name: call.name, arguments: call.args },
-          { runId, sessionId: state.sessionId, signal: state.signal, userInitiated: false },
-          approvalId === undefined ? {} : { approvalId },
+          {
+            runId,
+            sessionId: state.sessionId,
+            signal: state.signal,
+            userInitiated: false,
+            origin: state.origin,
+            ...(state.taskId === undefined ? {} : { taskId: state.taskId }),
+          },
+          {
+            ...(approvalId === undefined ? {} : { approvalId }),
+            ...(approvalActor === undefined ? {} : { decidedBy: approvalActor }),
+            origin: state.origin,
+          },
         );
         this.emit(runId, {
           type: "tool.finished",

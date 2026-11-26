@@ -2,20 +2,19 @@ import { performance } from "node:perf_hooks";
 import { ZodError } from "zod";
 import {
   ToolOutcomeSchema,
+  type RequestOrigin,
   type ToolCall,
   type ToolExecutionRecord,
   type ToolOutcome,
 } from "../../shared/contracts/index.js";
 import { AelvoError, asAelvoError, toPublicError } from "../../shared/errors/index.js";
 import { canonicalJson, sha256 } from "../../shared/canonical.js";
-import type { AnyTool } from "../registry/types.js";
-import type { PolicyDecision } from "../../security/policies/policy.js";
+import type { AnyTool, ToolContext } from "../registry/types.js";
+import type { PolicyDecision, PolicyService } from "../../security/policies/policy.js";
 import type { AuditLog } from "../../security/audit/log.js";
-import type { ApprovalService } from "../../security/approvals/service.js";
-import type { PolicyService } from "../../security/policies/policy.js";
+import type { ApprovalBinding, ApprovalService } from "../../security/approvals/service.js";
 import type { Logger } from "../../observability/logger.js";
 import type { RuntimeMetrics } from "../../observability/metrics.js";
-import type { ToolContext } from "../registry/types.js";
 import type { ToolRegistry } from "../registry/registry.js";
 import { FailureClassifier, RetrySafetyEngine } from "../../runtime/recovery/index.js";
 
@@ -32,6 +31,8 @@ export interface ToolExecutorOptions {
 export interface ExecuteOptions {
   approvalId?: string;
   userInitiated?: boolean;
+  origin?: RequestOrigin;
+  decidedBy?: "user" | "cli" | "bridge" | "system" | "model";
   maxAttempts?: number;
   bypassCache?: boolean;
 }
@@ -46,6 +47,7 @@ export interface ToolPreview {
 
 interface CacheEntry {
   toolName: string;
+  policyEpoch: number;
   outcome: ToolOutcome;
   expiresAtMs: number;
 }
@@ -53,14 +55,10 @@ interface CacheEntry {
 /**
  * The single governed execution gateway.
  *
- * Invariants enforced here, not by convention:
- *  - arguments are parsed before anything runs;
- *  - policy is consulted before anything runs;
- *  - destructive/privileged actions need a single-use approval bound to the
- *    exact digested action;
- *  - success requires tool-provided evidence and an independent verification
- *    pass;
- *  - every attempt is audited.
+ * Authoritative security pipeline:
+ *   Request -> Identity & schema validation -> Capability & scope evaluation ->
+ *   Policy decision -> Single-use digest-bound approval -> Pre-execution
+ *   TOCTOU re-validation -> Execution -> Verification -> Accurate audit.
  */
 export class ToolExecutor {
   private readonly options: ToolExecutorOptions;
@@ -70,14 +68,16 @@ export class ToolExecutor {
 
   constructor(options: ToolExecutorOptions) {
     this.options = options;
+    this.options.policy.onChange(() => {
+      this.cache.clear();
+    });
   }
 
   /**
    * Resolve a call through registry validation and policy without executing it.
-   * The coordinator uses this to decide whether a batch can run through the
-   * execution graph; the executor still re-checks everything on execution.
+   * Uses caller context when available so preview reflects active session/task grants.
    */
-  preview(call: ToolCall): ToolPreview | undefined {
+  preview(call: ToolCall, context?: Partial<ToolContext>): ToolPreview | undefined {
     try {
       const tool = this.options.registry.get(call.name);
       const input = tool.inputSchema.parse(call.arguments);
@@ -88,14 +88,16 @@ export class ToolExecutor {
         resource,
         paths,
         destructive: tool.destructive,
-        runId: "preview",
-        actor: "model",
-        userInitiated: false,
+        runId: context?.runId ?? "preview",
+        ...(context?.sessionId === undefined ? {} : { sessionId: context.sessionId }),
+        ...(context?.taskId === undefined ? {} : { taskId: context.taskId }),
+        ...(context?.origin === undefined ? {} : { origin: context.origin }),
+        toolName: call.name,
+        actor: context?.userInitiated ? "user" : "model",
+        userInitiated: context?.userInitiated ?? false,
       });
       return { tool, input, resource, paths, decision };
     } catch {
-      // Validation or path resolution failures take the sequential path so the
-      // model receives the normal structured error and audit entry.
       return undefined;
     }
   }
@@ -104,8 +106,30 @@ export class ToolExecutor {
     const started = performance.now();
     const { registry, policy, approvals, audit, logger } = this.options;
     const userInitiated = options.userInitiated ?? context.userInitiated;
+    const actor: "user" | "model" = userInitiated ? "user" : "model";
+    const origin: RequestOrigin = options.origin ?? context.origin ?? "system";
+    const executionId = call.id;
 
-    const tool = registry.get(call.name);
+    let tool: AnyTool;
+    try {
+      tool = registry.get(call.name);
+    } catch (error) {
+      const publicError = toPublicError(error);
+      audit.record({
+        runId: context.runId,
+        sessionId: context.sessionId,
+        executionId,
+        origin,
+        actor,
+        action: call.name,
+        decision: "deny",
+        decisionReason: publicError.message,
+        riskLevel: "high",
+        executionStatus: "denied",
+      });
+      return this.failure(call, publicError.code, publicError.message, started, 0);
+    }
+
     let input: unknown;
     try {
       input = tool.inputSchema.parse(call.arguments);
@@ -113,75 +137,146 @@ export class ToolExecutor {
       const detail = error instanceof ZodError ? error.issues.map((issue) => issue.message).join("; ") : String(error);
       audit.record({
         runId: context.runId,
-        actor: userInitiated ? "user" : "model",
+        sessionId: context.sessionId,
+        executionId,
+        origin,
+        actor,
         action: call.name,
         capability: tool.capability,
         decision: "failed",
+        decisionReason: detail,
+        riskLevel: "moderate",
+        executionStatus: "failed",
         detail: { phase: "validation", error: detail },
       });
       return this.failure(call, "TOOL_INPUT_INVALID", `Invalid arguments: ${detail}`, started, 0);
     }
 
+    const resolveResourceAndPaths = (): { resource: string; paths: string[] } => ({
+      resource: tool.resource(input),
+      paths: tool.paths(input),
+    });
+
     let resource: string;
     let paths: string[];
     try {
-      resource = tool.resource(input);
-      paths = tool.paths(input);
+      ({ resource, paths } = resolveResourceAndPaths());
     } catch (error) {
       const publicError = toPublicError(error);
       audit.record({
         runId: context.runId,
-        actor: userInitiated ? "user" : "model",
+        sessionId: context.sessionId,
+        executionId,
+        origin,
+        actor,
         action: call.name,
         capability: tool.capability,
         decision: "deny",
+        decisionReason: publicError.message,
+        riskLevel: "high",
+        executionStatus: "denied",
         detail: { phase: "path", error: publicError.message },
       });
       return this.failure(call, publicError.code, publicError.message, started, 0);
     }
 
-    const decision = policy.evaluate({
-      capability: tool.capability,
-      resource,
-      paths,
-      destructive: tool.destructive,
-      runId: context.runId,
-      actor: userInitiated ? "user" : "model",
-      userInitiated,
-    });
+    const evalPolicy = (targetResource: string, targetPaths: string[]): PolicyDecision => {
+      const t0 = performance.now();
+      const decision = policy.evaluate({
+        capability: tool.capability,
+        resource: targetResource,
+        paths: targetPaths,
+        destructive: tool.destructive,
+        runId: context.runId,
+        sessionId: context.sessionId,
+        ...(context.taskId === undefined ? {} : { taskId: context.taskId }),
+        origin,
+        toolName: call.name,
+        actor,
+        userInitiated,
+      });
+      this.options.metrics?.record("security.policy_ms", performance.now() - t0, {
+        capability: tool.capability,
+      });
+      return decision;
+    };
+
+    const decision = evalPolicy(resource, paths);
+    if (options.approvalId === undefined) {
+      audit.record({
+        runId: context.runId,
+        sessionId: context.sessionId,
+        executionId,
+        origin,
+        actor,
+        action: call.name,
+        capability: tool.capability,
+        resource,
+        scope: decision.scope,
+        decision: "requested",
+        decisionReason: decision.reason,
+        riskLevel: decision.riskLevel,
+        executionStatus: "evaluating",
+      });
+    }
 
     if (decision.verdict === "deny") {
       audit.record({
         runId: context.runId,
-        actor: userInitiated ? "user" : "model",
+        sessionId: context.sessionId,
+        executionId,
+        origin,
+        actor,
         action: call.name,
         capability: tool.capability,
         resource,
+        scope: decision.scope,
         decision: "deny",
-        detail: { reason: decision.reason },
+        decisionReason: decision.reason,
+        riskLevel: decision.riskLevel,
+        executionStatus: "denied",
       });
-      return this.failure(call, "TOOL_DENIED", decision.reason, started, 0);
+      return this.failure(
+        call,
+        policy.isEmergencyStopActive() ? "EMERGENCY_STOP" : "TOOL_DENIED",
+        decision.reason,
+        started,
+        0,
+      );
     }
 
+    let redeemedApprovalId: string | undefined;
     if (decision.verdict === "approval") {
-      const binding = {
+      const binding: ApprovalBinding = {
         runId: context.runId,
         sessionId: context.sessionId,
+        executionId,
+        origin,
         tool: call.name,
         capability: tool.capability,
         resource,
+        scope: decision.scope,
+        policyEpoch: decision.policyEpoch,
         arguments: input as Record<string, unknown>,
       };
       if (options.approvalId === undefined) {
-        const request = approvals.request(binding, tool.summary(input));
+        const request = approvals.request(binding, tool.summary(input), { riskLevel: decision.riskLevel });
         audit.record({
           runId: context.runId,
-          actor: userInitiated ? "user" : "model",
+          sessionId: context.sessionId,
+          executionId,
+          origin,
+          actor,
           action: call.name,
           capability: tool.capability,
           resource,
+          scope: decision.scope,
           decision: "approval_requested",
-          detail: { approvalId: request.id, digest: request.digest },
+          decisionReason: decision.reason,
+          riskLevel: decision.riskLevel,
+          approvalId: request.id,
+          executionStatus: "approval_required",
+          detail: { digest: request.digest },
         });
         return {
           call,
@@ -191,27 +286,50 @@ export class ToolExecutor {
           attempts: 0,
         };
       }
+      if (options.decidedBy === "model") {
+        throw new AelvoError("TOOL_DENIED", "The model cannot authorize its own tool approvals");
+      }
       try {
+        const tRedeem0 = performance.now();
         approvals.redeem(options.approvalId, binding);
+        this.options.metrics?.record("security.approval_redeem_ms", performance.now() - tRedeem0, {
+          capability: tool.capability,
+        });
+        redeemedApprovalId = options.approvalId;
         audit.record({
           runId: context.runId,
+          sessionId: context.sessionId,
+          executionId,
+          origin,
           actor: "user",
           action: call.name,
           capability: tool.capability,
           resource,
+          scope: decision.scope,
           decision: "approval_granted",
-          detail: { approvalId: options.approvalId },
+          decisionReason: "Single-use digest-bound approval redeemed",
+          riskLevel: decision.riskLevel,
+          approvalId: options.approvalId,
+          executionStatus: "authorized",
         });
       } catch (error) {
         const publicError = toPublicError(error);
         audit.record({
           runId: context.runId,
+          sessionId: context.sessionId,
+          executionId,
+          origin,
           actor: "user",
           action: call.name,
           capability: tool.capability,
           resource,
+          scope: decision.scope,
           decision: "deny",
-          detail: { phase: "approval", error: publicError.message },
+          decisionReason: publicError.message,
+          riskLevel: decision.riskLevel,
+          approvalId: options.approvalId,
+          executionStatus: "denied",
+          detail: { phase: "approval" },
         });
         return {
           call,
@@ -226,18 +344,26 @@ export class ToolExecutor {
     const cacheKey =
       tool.cacheTtlMs === undefined || options.bypassCache === true
         ? undefined
-        : sha256(canonicalJson({ tool: call.name, arguments: input }));
+        : sha256(canonicalJson({ tool: call.name, arguments: input, scope: decision.scope }));
     if (cacheKey !== undefined) {
       const cached = this.cache.get(cacheKey);
       if (cached !== undefined) {
-        if (cached.expiresAtMs > Date.now()) {
+        if (cached.expiresAtMs > Date.now() && cached.policyEpoch === policy.policyEpoch) {
           audit.record({
             runId: context.runId,
-            actor: userInitiated ? "user" : "model",
+            sessionId: context.sessionId,
+            executionId,
+            origin,
+            actor,
             action: call.name,
             capability: tool.capability,
             resource,
+            scope: decision.scope,
             decision: "executed",
+            decisionReason: decision.reason,
+            riskLevel: decision.riskLevel,
+            executionStatus: "succeeded",
+            verified: true,
             detail: { cached: true },
           });
           this.options.metrics?.record("tool.cache.hit", 1, { tool: call.name });
@@ -261,22 +387,59 @@ export class ToolExecutor {
     while (attempts < maxAttempts) {
       attempts += 1;
       try {
+        // Pre-execution TOCTOU guard: re-verify paths, symlink safety, emergency stop,
+        // and policy epoch immediately before dispatching the tool implementation.
+        const fresh = resolveResourceAndPaths();
+        const freshDecision = evalPolicy(fresh.resource, fresh.paths);
+        if (freshDecision.verdict === "deny") {
+          const code = policy.isEmergencyStopActive() ? "EMERGENCY_STOP" : "TOOL_DENIED";
+          throw new AelvoError(code, freshDecision.reason, {
+            details: { phase: "pre_execution_recheck" },
+          });
+        }
+        if (freshDecision.verdict === "approval" && decision.verdict !== "approval") {
+          throw new AelvoError(
+            "TOOL_DENIED",
+            "Security policy tightened before execution; explicit approval is now required",
+            { details: { phase: "pre_execution_recheck" } },
+          );
+        }
+        if (
+          redeemedApprovalId !== undefined &&
+          (freshDecision.policyEpoch !== decision.policyEpoch || fresh.resource !== resource)
+        ) {
+          throw new AelvoError(
+            "APPROVAL_INVALID",
+            "Security policy or target resource changed after approval was granted",
+            { details: { phase: "pre_execution_recheck" } },
+          );
+        }
+
         const outcome = await this.runOnce(call, tool, input, context, timeoutMs);
         audit.record({
           runId: context.runId,
-          actor: userInitiated ? "user" : "model",
+          sessionId: context.sessionId,
+          executionId,
+          origin,
+          actor,
           action: call.name,
           capability: tool.capability,
-          resource,
+          resource: fresh.resource,
+          scope: freshDecision.scope,
           decision: "executed",
+          decisionReason: freshDecision.reason,
+          riskLevel: freshDecision.riskLevel,
+          ...(redeemedApprovalId === undefined ? {} : { approvalId: redeemedApprovalId }),
+          executionStatus: "succeeded",
+          verified: true,
           detail: { attempts, evidence: outcome.evidence.length },
         });
         if (!tool.idempotent || tool.capability !== "fs.read") {
-          // Any successful mutation invalidates reads made before it.
           this.cache.clear();
         } else if (cacheKey !== undefined && tool.cacheTtlMs !== undefined) {
           this.cache.set(cacheKey, {
             toolName: call.name,
+            policyEpoch: policy.policyEpoch,
             outcome,
             expiresAtMs: Date.now() + tool.cacheTtlMs,
           });
@@ -294,20 +457,62 @@ export class ToolExecutor {
         const aelvoError = asAelvoError(error);
         lastError = aelvoError;
         const aborted = aelvoError.code === "EXECUTION_ABORTED";
-        if (aborted) {
+        const uncertain =
+          (aborted || aelvoError.code === "EXECUTION_TIMEOUT") &&
+          (tool.destructive || !tool.idempotent);
+        if (
+          aelvoError.code === "TOOL_DENIED" ||
+          aelvoError.code === "APPROVAL_INVALID" ||
+          aelvoError.code === "EMERGENCY_STOP"
+        ) {
           audit.record({
             runId: context.runId,
-            actor: userInitiated ? "user" : "model",
+            sessionId: context.sessionId,
+            executionId,
+            origin,
+            actor,
             action: call.name,
             capability: tool.capability,
             resource,
-            decision: "cancelled",
+            scope: decision.scope,
+            decision: "deny",
+            decisionReason: aelvoError.message,
+            riskLevel: decision.riskLevel,
+            ...(redeemedApprovalId === undefined ? {} : { approvalId: redeemedApprovalId }),
+            executionStatus: "denied",
             detail: { attempts },
+          });
+          return this.failure(call, aelvoError.code, aelvoError.message, started, attempts);
+        }
+        if (aborted) {
+          audit.record({
+            runId: context.runId,
+            sessionId: context.sessionId,
+            executionId,
+            origin,
+            actor,
+            action: call.name,
+            capability: tool.capability,
+            resource,
+            scope: decision.scope,
+            decision: uncertain ? "effect_uncertain" : "cancelled",
+            decisionReason: aelvoError.message,
+            riskLevel: decision.riskLevel,
+            ...(redeemedApprovalId === undefined ? {} : { approvalId: redeemedApprovalId }),
+            executionStatus: "cancelled",
+            cancelled: true,
+            verified: false,
+            detail: { attempts, effectUncertain: uncertain },
           });
           return {
             call,
             status: "cancelled",
-            error: { code: aelvoError.code, message: aelvoError.message },
+            error: {
+              code: aelvoError.code,
+              message: uncertain
+                ? `${aelvoError.message} (external side effect uncertain; refusing blind replay)`
+                : aelvoError.message,
+            },
             durationMs: Math.round(performance.now() - started),
             attempts,
           };
@@ -316,13 +521,13 @@ export class ToolExecutor {
           errorMessage: aelvoError.message,
           exitCode: null,
         });
-        const decision = this.retrySafety.evaluate({
+        const retryDecision = this.retrySafety.evaluate({
           nodeId: `${context.runId}:${call.name}`,
           classification: classification.primary,
           retryability: aelvoError.retryable ? "safe" : "never",
           retryCount: attempts,
         });
-        const canRetry = decision.canRetry && tool.idempotent && attempts < maxAttempts;
+        const canRetry = retryDecision.canRetry && tool.idempotent && attempts < maxAttempts;
         logger.debug(
           { tool: call.name, attempt: attempts, code: aelvoError.code, classification: classification.primary, canRetry },
           "tool attempt failed",
@@ -332,7 +537,7 @@ export class ToolExecutor {
           const timer = setTimeout(() => {
             context.signal.removeEventListener("abort", abort);
             resolve();
-          }, Math.min(1_000, decision.suggestedBackoffMs));
+          }, Math.min(1_000, retryDecision.suggestedBackoffMs));
           const abort = (): void => {
             clearTimeout(timer);
             reject(new AelvoError("EXECUTION_ABORTED", "Tool retry cancelled"));
@@ -343,16 +548,35 @@ export class ToolExecutor {
     }
 
     const error = lastError ?? new AelvoError("EXECUTION_FAILED", "Tool execution failed");
+    const uncertainTimeout =
+      error.code === "EXECUTION_TIMEOUT" && (tool.destructive || !tool.idempotent);
     audit.record({
       runId: context.runId,
-      actor: userInitiated ? "user" : "model",
+      sessionId: context.sessionId,
+      executionId,
+      origin,
+      actor,
       action: call.name,
       capability: tool.capability,
       resource,
-      decision: "failed",
-      detail: { attempts, code: error.code, message: error.message },
+      scope: decision.scope,
+      decision: uncertainTimeout ? "effect_uncertain" : "failed",
+      decisionReason: error.message,
+      riskLevel: decision.riskLevel,
+      ...(redeemedApprovalId === undefined ? {} : { approvalId: redeemedApprovalId }),
+      executionStatus: "failed",
+      verified: false,
+      detail: { attempts, code: error.code, effectUncertain: uncertainTimeout },
     });
-    return this.failure(call, error.code, error.message, started, attempts);
+    return this.failure(
+      call,
+      error.code,
+      uncertainTimeout
+        ? `${error.message} (external side effect uncertain)`
+        : error.message,
+      started,
+      attempts,
+    );
   }
 
   private async runOnce(
@@ -420,7 +644,6 @@ export class ToolExecutor {
     });
   }
 
-  /** Explicit invalidation for callers that changed state outside a tool. */
   invalidateCache(toolName?: string): number {
     if (toolName === undefined) {
       const count = this.cache.size;
@@ -451,11 +674,11 @@ export class ToolExecutor {
     const durationMs = Math.round(performance.now() - started);
     this.options.metrics?.record("tool.execution", durationMs, {
       tool: call.name,
-      status: code === "TOOL_DENIED" ? "denied" : "failed",
+      status: code === "TOOL_DENIED" || code === "EMERGENCY_STOP" ? "denied" : "failed",
     });
     return {
       call,
-      status: code === "TOOL_DENIED" ? "denied" : "failed",
+      status: code === "TOOL_DENIED" || code === "EMERGENCY_STOP" ? "denied" : "failed",
       error: { code, message },
       durationMs,
       attempts,

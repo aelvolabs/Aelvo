@@ -2,6 +2,9 @@ import { spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { AelvoError } from "../../shared/errors/index.js";
+import { assertCredentialName } from "./validation.js";
+
+export { assertCredentialName } from "./validation.js";
 
 export type CredentialBackendKind = "dpapi" | "keychain" | "secret-service" | "memory";
 
@@ -54,14 +57,6 @@ function run(command: string, args: string[], stdin?: string, timeoutMs = 15_000
     if (stdin !== undefined) child.stdin.end(stdin);
     else child.stdin.end();
   });
-}
-
-const SAFE_NAME = /^[a-z0-9._-]{1,64}$/i;
-
-export function assertCredentialName(name: string): void {
-  if (!SAFE_NAME.test(name)) {
-    throw new AelvoError("CREDENTIAL_NOT_FOUND", "Invalid credential name", { details: { name } });
-  }
 }
 
 /**

@@ -2,11 +2,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { loadConfig, describeConfig } from "../config/index.js";
+import { loadConfig, describeConfig, loadLocalEnvFile } from "../config/index.js";
 import { AelvoApplication } from "../app.js";
 import { startBridge } from "../runtime/bridge/server.js";
 import { runDiagnostics, diagnosticsExitCode } from "../runtime/diagnostics.js";
 import { probeLiveSession } from "../intelligence/providers/google/live-probe.js";
+import { GoogleGateway } from "../intelligence/providers/google/gateway.js";
+import { GOOGLE_API_KEY_CREDENTIAL, resolveGoogleApiKey } from "../security/credentials/provider.js";
 import { planFromRequest, materializePlan } from "../planning/planner.js";
 import { toPublicError } from "../shared/errors/index.js";
 import type { ApprovalRequest, RunStatus } from "../shared/contracts/index.js";
@@ -75,15 +77,18 @@ Commands:
   serve                      Start the authenticated local WebSocket bridge
   doctor [--network] [--json]  Report verified environment checks
   memory list|search|remember|correct|delete|export
+  credential set|list|check|delete|import-env
   task list|add|run|recover|steps|reconcile
   schedule list|add|cancel|tick
   mcp status|connect
   config show
+  models [--limit N] [--json]  List available Google Gemini models and capabilities
   probe-live                 Verify a Gemini Live session (requires key and model)
   version
 
 Environment:
-  AELVO_MODEL, GEMINI_API_KEY|GOOGLE_API_KEY, AELVO_DATA_DIR, AELVO_WORKSPACE,
+  AELVO_MODEL, AELVO_LIVE_MODEL, AELVO_LIVE_VOICE,
+  GEMINI_API_KEY|GOOGLE_API_KEY, AELVO_DATA_DIR, AELVO_WORKSPACE,
   AELVO_LOG_LEVEL, AELVO_ORIGINS, AELVO_ALLOW_PROCESS_EXEC, AELVO_ALLOW_NETWORK_TOOLS
 `;
 
@@ -196,6 +201,73 @@ async function commandMemory(app: AelvoApplication, args: ParsedArgs): Promise<n
     }
     default:
       process.stderr.write("usage: aelvo memory list|search|remember|correct|delete|export\n");
+      return EXIT_USAGE;
+  }
+}
+
+async function commandCredential(app: AelvoApplication, args: ParsedArgs): Promise<number> {
+  const asJson = args.flags.json === true;
+  const [subcommand, positionalName] = args.positional;
+  const name = positionalName ?? GOOGLE_API_KEY_CREDENTIAL;
+  switch (subcommand) {
+    case "list": {
+      const items = app.credentials.list();
+      print(
+        asJson
+          ? items
+          : items
+              .map((item) => `${item.name} [${item.credentialType}] ${item.backend} ${item.hint} valid=${item.valid}`)
+              .join("\n") || "No stored credentials.",
+        asJson,
+      );
+      return EXIT_OK;
+    }
+    case "set": {
+      const fromEnv = flagString(args.flags, "from-env");
+      let secret: string;
+      if (fromEnv !== undefined) {
+        secret = (process.env[fromEnv] ?? "").trim();
+        if (secret.length === 0) {
+          throw new Error(`Environment variable ${fromEnv} is not set`);
+        }
+      } else {
+        if (process.stdin.isTTY) {
+          process.stderr.write("Refusing to read a secret from an interactive terminal. Pipe it on stdin or use --from-env.\n");
+          return EXIT_USAGE;
+        }
+        secret = readFileSync(0, "utf8").trim();
+      }
+      const expiresAt = flagString(args.flags, "expires-at");
+      const metadata = await app.credentials.set(name, secret, {
+        credentialType: "api_key",
+        label: flagString(args.flags, "label") ?? name,
+        ...(expiresAt === undefined ? {} : { expiresAt }),
+      });
+      print(metadata, asJson);
+      return EXIT_OK;
+    }
+    case "check": {
+      const result = await app.credentials.check(name);
+      print(result, asJson);
+      return result.valid ? EXIT_OK : EXIT_ERROR;
+    }
+    case "delete": {
+      const deleted = await app.credentials.delete(name);
+      print({ name, deleted }, asJson);
+      return deleted ? EXIT_OK : EXIT_ERROR;
+    }
+    case "import-env": {
+      const result = await app.credentials.importEnvironment(
+        process.env,
+        ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        name,
+        { credentialType: "api_key", label: "Imported Google API key" },
+      );
+      print(result, asJson);
+      return result.migrated ? EXIT_OK : EXIT_ERROR;
+    }
+    default:
+      process.stderr.write("usage: aelvo credential set|list|check|delete|import-env\n");
       return EXIT_USAGE;
   }
 }
@@ -314,13 +386,16 @@ async function commandChat(app: AelvoApplication): Promise<number> {
 async function commandServe(app: AelvoApplication): Promise<number> {
   const bridge = await startBridge({
     runtime: {
-      startRun: (input, hooks) => app.startRun(input, hooks ?? {}),
+      startRun: (input, hooks, sessionId) => app.startRun(input, hooks ?? {}, sessionId),
       cancel: (runId) => app.cancel(runId),
-      resolveApproval: (approvalId, approved) => app.resolveApproval(approvalId, approved),
+      resolveApproval: (approvalId, approved) => app.resolveApproval(approvalId, approved, "bridge"),
       searchMemory: (query, limit) => app.searchMemory(query, limit),
       state: () => app.state(),
       subscribe: (listener) => app.subscribe(listener),
+      activateEmergencyStop: (reason) => app.activateEmergencyStop("bridge", reason),
+      resumeEmergencyStop: (reason) => app.resumeEmergencyStop("bridge", reason),
     },
+    audit: app.audit,
     logger: app.logger,
     host: app.config.server.host,
     port: app.config.server.port,
@@ -372,6 +447,9 @@ async function main(argv: string[]): Promise<number> {
 
   const args = parseArgs(rest);
   const asJson = args.flags.json === true;
+  // Local checkout configuration is loaded without printing values; explicit
+  // process environment variables still take precedence.
+  loadLocalEnvFile();
   const config = loadConfig();
   const app = await AelvoApplication.create({ config });
   try {
@@ -408,6 +486,8 @@ async function main(argv: string[]): Promise<number> {
       }
       case "memory":
         return await commandMemory(app, args);
+      case "credential":
+        return await commandCredential(app, args);
       case "task":
         return await commandTask(app, args);
       case "schedule":
@@ -428,14 +508,49 @@ async function main(argv: string[]): Promise<number> {
         return EXIT_USAGE;
       }
       case "config":
-        print(describeConfig(config), true);
+        print(
+          {
+            ...describeConfig(config),
+            providerCredentialSource: app.providerCredentialSource,
+            credentialBackend: app.credentials.backendKind,
+          },
+          true,
+        );
         return EXIT_OK;
-      case "probe-live": {
-        if (config.apiKey === undefined || config.model === undefined) {
-          print({ status: "unverified", detail: "A key and AELVO_MODEL are required" }, true);
+      case "models": {
+        if (!(app.gateway instanceof GoogleGateway)) {
+          print({ models: [], detail: "Google provider is not configured" }, asJson);
           return EXIT_ERROR;
         }
-        const result = await probeLiveSession({ apiKey: config.apiKey, model: config.model });
+        const limit = Number(flagString(args.flags, "limit") ?? 50);
+        const models = await app.gateway.listModels(Number.isFinite(limit) && limit > 0 ? limit : 50);
+        print(
+          asJson
+            ? { model: app.gateway.model, models }
+            : models
+                .map(
+                  (m) =>
+                    `${m.model.padEnd(32)} in=${m.inputTokenLimit ?? "?"} out=${m.outputTokenLimit ?? "?"} tools=${String(m.details.functionCalling)} live=${String(m.details.liveSession)}`,
+                )
+                .join("\n") || "No models returned.",
+          asJson,
+        );
+        return EXIT_OK;
+      }
+      case "probe-live": {
+        const resolved = await resolveGoogleApiKey(app.credentials, config.apiKey);
+        const liveModel = config.liveModel ?? config.model;
+        if (resolved.apiKey === undefined || liveModel === undefined) {
+          print(
+            {
+              status: "unverified",
+              detail: resolved.detail ?? "A key and AELVO_LIVE_MODEL (or AELVO_MODEL) are required",
+            },
+            true,
+          );
+          return EXIT_ERROR;
+        }
+        const result = await probeLiveSession({ apiKey: resolved.apiKey, model: liveModel });
         print(result, true);
         return result.status === "verified" ? EXIT_OK : EXIT_ERROR;
       }

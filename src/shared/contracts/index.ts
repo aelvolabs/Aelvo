@@ -10,8 +10,16 @@ export const CapabilitySchema = z.enum([
   "fs.read",
   "fs.write",
   "fs.delete",
+  "fs.move",
+  "process.inspect",
   "process.exec",
   "app.control",
+  "clipboard",
+  "notification",
+  "memory",
+  "schedule",
+  "screen",
+  "microphone",
   "network",
   "integration",
   "credentials",
@@ -19,6 +27,25 @@ export const CapabilitySchema = z.enum([
   "destructive",
 ]);
 export type Capability = z.infer<typeof CapabilitySchema>;
+
+export const AutonomyLevelSchema = z.enum(["restricted", "balanced", "high"]);
+export type AutonomyLevel = z.infer<typeof AutonomyLevelSchema>;
+
+export const RiskLevelSchema = z.enum(["low", "moderate", "high", "critical"]);
+export type RiskLevel = z.infer<typeof RiskLevelSchema>;
+
+export const RequestOriginSchema = z.enum([
+  "text",
+  "live",
+  "graph",
+  "task",
+  "workflow",
+  "mcp",
+  "bridge",
+  "cli",
+  "system",
+]);
+export type RequestOrigin = z.infer<typeof RequestOriginSchema>;
 
 export const ToolEvidenceSchema = z.object({
   kind: z.enum([
@@ -83,6 +110,12 @@ export const ApprovalRequestSchema = z.object({
   digest: z.string().length(64),
   expiresAt: z.string(),
   summary: z.string(),
+  sessionId: z.string().min(1).optional(),
+  executionId: z.string().min(1).optional(),
+  origin: RequestOriginSchema.optional(),
+  riskLevel: RiskLevelSchema.optional(),
+  scope: z.string().optional(),
+  policyEpoch: z.number().int().nonnegative().optional(),
 });
 export type ApprovalRequest = z.infer<typeof ApprovalRequestSchema>;
 
@@ -136,6 +169,63 @@ export const RuntimeEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("approval.resolved"), approvalId: z.string(), approved: z.boolean() }),
   z.object({ type: z.literal("task.updated"), taskId: z.string(), status: z.string() }),
   z.object({ type: z.literal("provider.usage"), provider: z.string(), model: z.string(), inputTokens: z.number(), outputTokens: z.number() }),
+  z.object({
+    type: z.literal("live.session.started"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    model: z.string(),
+    resumed: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("live.session.state"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    connectionState: z.enum(["IDLE", "CONNECTING", "CONNECTED", "RECONNECTING", "CLOSING", "CLOSED", "FAILED"]),
+    activityState: z.enum(["idle", "listening", "user_speaking", "model_responding", "tool_executing", "interrupted"]),
+  }),
+  z.object({
+    type: z.literal("live.session.closed"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    expected: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("live.interrupted"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    generationId: z.string(),
+    providerNotified: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("live.approval_required"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    callId: z.string(),
+    approval: ApprovalRequestSchema,
+  }),
+  z.object({
+    type: z.literal("live.input"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    modality: z.enum(["TEXT", "AUDIO"]),
+  }),
+  z.object({
+    type: z.literal("live.tool.response_sent"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    count: z.number(),
+  }),
+  z.object({
+    type: z.literal("live.reconnected"),
+    liveSessionId: z.string(),
+    connectionGeneration: z.number(),
+    resumed: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("live.error"),
+    liveSessionId: z.string(),
+    error: z.object({ code: z.string(), message: z.string(), retryable: z.boolean() }),
+  }),
   z.object({ type: z.literal("security.emergency_stop"), active: z.boolean() }),
   z.object({ type: z.literal("system.notice"), level: z.enum(["info", "warn", "error"]), message: z.string() }),
 ]);
@@ -155,6 +245,8 @@ export const ServerCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("memory.search"), query: z.string().min(1).max(500), limit: z.number().int().min(1).max(50).default(10) }),
   z.object({ type: z.literal("state.get") }),
   z.object({ type: z.literal("subscribe"), topics: z.array(z.string().min(1).max(100)).max(50) }),
+  z.object({ type: z.literal("emergency.stop"), reason: z.string().max(300).optional() }),
+  z.object({ type: z.literal("emergency.resume"), reason: z.string().max(300).optional() }),
 ]);
 export type ServerCommand = z.infer<typeof ServerCommandSchema>;
 

@@ -2,6 +2,8 @@ import type { TaskService, TaskRecord } from "../../tasks/service.js";
 import type { RunCoordinator } from "../coordinator/run-coordinator.js";
 import type { Logger } from "../../observability/logger.js";
 import type { RecoveryManager } from "../recovery/manager.js";
+import type { PolicyService } from "../../security/policies/policy.js";
+import type { AuditLog } from "../../security/audit/log.js";
 
 export interface TaskRunOutcome {
   taskId: string;
@@ -15,6 +17,8 @@ export interface TaskRunnerOptions {
   coordinator: RunCoordinator;
   logger: Logger;
   recovery?: RecoveryManager;
+  policy?: PolicyService;
+  audit?: AuditLog;
 }
 
 const EXECUTABLE_KINDS = new Set(["plan_step", "chat", "reminder"]);
@@ -43,7 +47,18 @@ export class TaskRunner {
   }
 
   async runOne(workerId = "task-runner"): Promise<TaskRunOutcome | undefined> {
-    const { tasks, coordinator, logger } = this.options;
+    const { tasks, coordinator, logger, policy, audit } = this.options;
+    if (policy?.isEmergencyStopActive()) {
+      audit?.record({
+        origin: "task",
+        actor: "system",
+        action: "task.run",
+        decision: "deny",
+        decisionReason: "Emergency stop is active; background task execution suspended",
+      });
+      return undefined;
+    }
+
     const task = tasks.claimNext(workerId);
     if (task === undefined) return undefined;
 
@@ -70,7 +85,11 @@ export class TaskRunner {
 
     let result;
     try {
-      result = await coordinator.run({ input, plan: false });
+      result = await coordinator.run(
+        { input, plan: false },
+        {},
+        { origin: "task", taskId: task.id },
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const evaluation = recovery?.evaluateFailure({ scopeId: task.id, error: message, retryCount: task.attempts });
@@ -120,6 +139,16 @@ export class TaskRunner {
   }
 
   async runDue(limit = 1): Promise<TaskRunOutcome[]> {
+    if (this.options.policy?.isEmergencyStopActive()) {
+      this.options.audit?.record({
+        origin: "task",
+        actor: "system",
+        action: "task.run_due",
+        decision: "deny",
+        decisionReason: "Emergency stop is active; due task batch suspended",
+      });
+      return [];
+    }
     const outcomes: TaskRunOutcome[] = [];
     for (let index = 0; index < limit; index += 1) {
       const outcome = await this.runOne();
